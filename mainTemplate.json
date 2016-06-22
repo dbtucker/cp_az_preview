@@ -3,7 +3,6 @@
     "contentVersion": "1.0.0.0",
     "parameters" : {
 		"artifactsBaseUrl": {
-			"defaultValue" : "https://raw.githubusercontent.com/dbtucker/cp_az_preview/master",
 			"type": "string",
 			"metadata": {
 				"artifactsBaseUrl": "Base URL of the Publisher Template gallery package"
@@ -32,7 +31,7 @@
             }
         },
         "numWorkers": {
-            "defaultValue": 1,
+            "defaultValue": 0,
             "type": "int",
             "metadata": {
                  "description": "Number of producer/consumer workers."
@@ -78,14 +77,13 @@
             }
         },
         "adminPassword": {
-            "defaultValue": "ConfAzur3",
+            "defaultValue": "",
             "type": "securestring",
             "metadata": {
                  "description": "Password for System Administrator"
             }
         },
         "kadminPassword": {
-            "defaultValue": "C0nfluent",
             "type": "securestring",
             "metadata": {
                  "description": "Password for Confluent Administrator (kadmin user account)"
@@ -145,8 +143,6 @@
         },
         "location": {
             "type": "string",
-            "defaultValue" : "West US",
-            "allowedValues": ["East US2", "West US", "West Europe", "South East Asia", "Japan East", "Japan West", "Australia East"],
             "metadata": {
                 "description": "Deployment location"
             }
