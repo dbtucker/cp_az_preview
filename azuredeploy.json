@@ -1,0 +1,611 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters" : {
+		"artifactsBaseUrl": {
+			"defaultValue" : "https://raw.githubusercontent.com/dbtucker/cp_az_preview/master",
+			"type": "string",
+			"metadata": {
+				"artifactsBaseUrl": "Base URL of the Publisher Template gallery package"
+			}
+		},
+        "clusterName": {
+            "defaultValue": "confaz",
+            "type": "string",
+            "metadata": {
+                 "description": "Unique name for deployed cluster.  Must be all lower case letters or numbers; no spaces or special characters."
+            }
+        },
+        "numBrokers": {
+            "defaultValue": 1,
+            "type": "int",
+            "metadata": {
+                 "description": "Number of broker instances for this cluster."
+            }
+        },
+        "numZookeepers": {
+            "defaultValue": 0,
+            "type": "int",
+            "allowedValues": [ 0, 1, 3 ],
+            "metadata": {
+                 "description": "Number of independent Zookeeper instances. When 0, ZK is deployed on broker nodes."
+            }
+        },
+        "numWorkers": {
+            "defaultValue": 0,
+            "type": "int",
+            "metadata": {
+                 "description": "Number of producer/consumer workers."
+            }
+        },
+        "confluentVersion": {
+            "defaultValue": "3.0.0",
+            "type": "string",
+            "allowedValues": ["3.0.0"],
+            "metadata": {
+                 "description": "Confluent Platform Version"
+            }
+        },
+        "imagePublisher": {
+            "defaultValue": "confluentinc",
+            "type": "string",
+            "allowedValues": ["OpenLogic", "Canonical", "confluentinc"]
+        },
+        "imageOffer": {
+            "defaultValue": "confluentplatform",
+            "type": "string",
+            "allowedValues": ["CentOS", "UbuntuServer", "confluentplatform", "confluentplatform-preview"]
+        },
+        "imageSKU": {
+            "defaultValue": "300",
+            "type": "string",
+            "allowedValues": ["7.1", "14.04.4-LTS", "300"]
+        },
+        "imageVersion": {
+            "defaultValue": "latest",
+            "type": "string"
+        },
+        "imagePlan": {
+            "defaultValue": "yes",
+            "type": "string",
+            "allowedValues": ["no", "yes"]
+        },
+        "adminUsername": {
+            "defaultValue": "azadmin",
+            "type": "string",
+            "metadata": {
+                 "description": "System Administrator for deployed nodes"
+            }
+        },
+        "adminPassword": {
+            "defaultValue": "ConfAzur3",
+            "type": "securestring",
+            "metadata": {
+                 "description": "Password for System Administrator"
+            }
+        },
+        "kadminPassword": {
+            "defaultValue": "C0nfluent",
+            "type": "securestring",
+            "metadata": {
+                 "description": "Password for Confluent Administrator (kadmin user account)"
+            }
+        },
+        "sshKey": {
+            "defaultValue": "",
+            "type": "securestring",
+            "metadata": {
+                 "description": "SSH Key for System Administrator"
+            }
+        },
+        "authenticationType": {
+            "type": "string",
+            "defaultValue" : "password",
+            "allowedValues": ["password", "sshPublicKey"],
+            "metadata": {
+                "description": "Authentication to use for System Administrator."
+            }
+        },
+        "vnetNewOrExisting": {
+            "type": "string",
+            "defaultValue" : "new",
+            "allowedValues": ["new", "existing"],
+            "metadata": {
+                "description": "Create new virtual network or re-use existing."
+            }
+        },
+        "vnetName": {
+            "type": "string",
+            "defaultValue" : "",
+            "metadata": {
+                "description": "Network resource to use for this deployment"
+            }
+        },
+        "vnetAddressPrefix": {
+            "type": "string",
+            "defaultValue" : "10.0.0.0/16"
+        },
+        "vnetSubnetName": {
+            "type": "string",
+            "defaultValue" : "Privnet-1",
+            "metadata": {
+                "description": "Subnet specification for this deployment"
+            }
+        },
+        "vnetSubnetAddressPrefix": {
+            "type": "string",
+            "defaultValue" : "10.0.0.0/24"
+        },
+        "vnetResourceGroupName": {
+            "type": "string",
+            "defaultValue" : "",
+            "metadata": {
+                "description": "Resource Group for virtual network resource"
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue" : "West US",
+            "allowedValues": ["East US2", "West US", "West Europe", "South East Asia", "Japan East", "Japan West", "Australia East"],
+            "metadata": {
+                "description": "Deployment location"
+            }
+        },
+        "vmSize": {
+            "type": "string",
+            "defaultValue": "Standard_D2",
+            "allowedValues": ["Standard_D2_V2", "Standard_D3_V2", "Standard_D4_V2", "Standard_D11_V2", "Standard_D12_V2", "Standard_D13_V2", 
+                "Standard_DS2_V2", "Standard_DS3_V2", "Standard_DS4_V2", "Standard_DS11_V2", "Standard_DS12_V2", "Standard_DS13_V2", 
+                "Standard_D2", "Standard_D3", "Standard_D4", "Standard_D11", "Standard_D12", "Standard_D13", 
+				"Standard_DS2", "Standard_DS3", "Standard_DS4", "Standard_DS11", "Standard_DS12", "Standard_DS13",
+				"Standard_F4", "Standard_F8", "Standard_FS4", "Standard_FS8" ],
+            "metadata": {
+                "description": "InstanceType to use for this deployment"
+            }
+        }
+    },
+    "variables": {
+        "scriptsUri" : "[concat(parameters('artifactsBaseUrl'),'/')]",
+        "storageAccountBasename": "[concat(trim(substring(concat(parameters('clusterName'),'        '),0,8)),substring(uniquestring(resourceGroup().id),0,4))]",
+
+        "brokerBasename": "[concat(parameters('clusterName'),'-broker-')]",
+        "zookeeperBasename": "[concat(parameters('clusterName'),'-zk-')]",
+        "workerBasename": "[concat(parameters('clusterName'),'-worker-')]",
+
+        "networkSpec" : {
+            "vnetName": "[parameters('vnetName')]",
+            "vnetCIDR": "[parameters('vnetAddressPrefix')]",
+            "subnet1Name": "[parameters('vnetSubnetName')]",
+            "subnet1CIDR" : "[parameters('vnetSubnetAddressPrefix')]"
+        },
+        "subnetRef" : "[concat(resourceId(parameters('vnetResourceGroupName'), 'Microsoft.Network/virtualNetworks', parameters('vnetName')), '/subnets/', parameters('vnetSubnetName'))]",
+        "publicIPAddressType" : "Dynamic"
+    },
+    "resources": [
+    {
+        "name": "[concat(parameters('clusterName'), '-network')]",
+        "type": "Microsoft.Resources/deployments",
+        "apiVersion": "2015-01-01",
+        "properties": {
+            "mode": "Incremental",
+            "templateLink": {
+                "uri": "[concat(variables('scriptsUri'), 'network_', parameters('vnetNewOrExisting'), '.json')]",
+                "contentVersion": "1.0.0.0"
+            },
+            "parameters": {
+                "networkSpec" : {
+                    "value" : "[variables('networkSpec')]"
+                },
+                "location": {
+                    "value": "[parameters('location')]"
+                }
+            }
+        }
+    },
+    {
+        "name": "Zookeepers",
+        "type": "Microsoft.Resources/deployments",
+        "apiVersion": "2015-01-01",
+        "dependsOn": [
+            "[concat('Microsoft.Resources/deployments/', parameters('clusterName'), '-network')]"
+        ],
+        "properties": {
+            "mode": "Incremental",
+            "templateLink": {
+                "uri": "[concat(variables('scriptsUri'), 'zk_', replace(string(parameters('numZookeepers')), '3', '1'), '.json')]",
+                "contentVersion": "1.0.0.0"
+            },
+            "parameters": {
+                "scriptsUri" : {
+                    "value": "[variables('scriptsUri')]"
+                },
+                "clusterName" : {
+                    "value": "[parameters('clusterName')]"
+                },
+                "numBrokers" : {
+                    "value": "[parameters('numBrokers')]"
+                },
+                "numZookeepers" : {
+                    "value": "[parameters('numZookeepers')]"
+                },
+                "numWorkers" : {
+                    "value": "[parameters('numWorkers')]"
+                },
+                "confluentVersion" : {
+                    "value": "[parameters('confluentVersion"
+                },
+                "vmSize" : {
+                    "value": "[parameters('vmSize')]"
+                },
+                "imagePublisher" : {
+                    "value": "[parameters('imagePublisher')]"
+                },
+                "imageOffer" : {
+                    "value": "[parameters('imageOffer')]"
+                },
+                "imageSKU" : {
+                    "value": "[parameters('imageSKU')]"
+                },
+                "imageVersion" : {
+                    "value": "[parameters('imageVersion')]"
+                },
+                "imagePlan" : {
+                    "value": "[parameters('imagePlan')]"
+                },
+                "adminUsername" : {
+                    "value": "[parameters('adminUsername')]"
+                },
+                "adminPassword" : {
+                    "value": "[parameters('adminPassword')]"
+                },
+                "kadminPassword" : {
+                    "value": "[parameters('kadminPassword')]"
+                },
+                "sshKey" : {
+                    "value" : "[parameters('sshKey')]"
+                },
+                "authenticationType" : {
+                    "value" : "[parameters('authenticationType')]"
+                },
+                "storageAccountBasename" : {
+                    "value": "[variables('storageAccountBasename')]"
+                },
+                "vnetName" : {
+                    "value": "[parameters('vnetName')]"
+                },
+                "vnetSubnetName" : {
+                    "value": "[parameters('vnetSubnetName')]"
+                },
+                "vnetResourceGroupName" : {
+                    "value": "[parameters('vnetResourceGroupName')]"
+                },
+                "location": {
+                    "value": "[parameters('location')]"
+                }
+            }
+        }
+    },
+    {
+        "name": "BrokerNics",
+        "type": "Microsoft.Resources/deployments",
+        "apiVersion": "2015-01-01",
+        "dependsOn": [
+            "[concat('Microsoft.Resources/deployments/', parameters('clusterName'), '-network')]"
+        ],
+        "properties": {
+            "mode": "Incremental",
+            "templateLink": {
+                "uri": "[concat(variables('scriptsUri'), 'nics.json')]",
+                "contentVersion": "1.0.0.0"
+            },
+            "parameters": {
+                "vnetName" : {
+                    "value": "[parameters('vnetName')]"
+                },
+                "groupSize" : {
+                    "value": "[parameters('numBrokers')]"
+                },
+                "groupBasename" : {
+                    "value": "[variables('brokerBasename')]"
+                },
+                "publicIPAddressBasename" : {
+       	            "value": "[concat(parameters('clusterName'),'-',substring(uniquestring(resourceGroup().id),0,4),'-broker-')]"
+                },
+                "publicIPAddressType": {
+                    "value": "[variables('publicIPAddressType')]"
+                },
+                "subnetRef" : {
+                    "value" : "[variables('subnetRef')]"
+                },
+                "location" : {
+                    "value": "[parameters('location')]"
+                }
+            }
+        }
+    },
+    {
+        "name": "BrokerVms",
+        "type": "Microsoft.Resources/deployments",
+        "apiVersion": "2015-01-01",
+        "dependsOn": [
+            "['Microsoft.Resources/deployments/BrokerNics']"
+        ],        
+        "properties": {
+            "mode": "Incremental",
+            "templateLink": {
+                "uri": "[concat(variables('scriptsUri'), 'vms.json')]",
+                "contentVersion": "1.0.0.0"
+            },
+            "parameters": {
+                "scriptsUri" : {
+                    "value": "[variables('scriptsUri')]"
+                },
+                "clusterName" : {
+                    "value": "[parameters('clusterName')]"
+                },
+                "groupSize" : {
+                    "value": "[parameters('numBrokers')]"
+                },
+                "groupBasename" : {
+                    "value": "[variables('brokerBasename')]"
+                },
+                "groupClass" : {
+                    "value": "broker"
+                },
+                "vmSize" : {
+                    "value": "[parameters('vmSize')]"
+                },
+                "imagePublisher" : {
+                    "value": "[parameters('imagePublisher')]"
+                },
+                "imageOffer" : {
+                    "value": "[parameters('imageOffer')]"
+                },
+                "imageSKU" : {
+                    "value": "[parameters('imageSKU')]"
+                },
+                "imageVersion" : {
+                    "value": "[parameters('imageVersion')]"
+                },
+                "imagePlan" : {
+                    "value": "[parameters('imagePlan')]"
+                },
+                "adminUsername" : {
+                    "value": "[parameters('adminUsername')]"
+                },
+                "adminPassword" : {
+                    "value": "[parameters('adminPassword')]"
+                },
+                "sshKey" : {
+                    "value" : "[parameters('sshKey')]"
+                },
+                "authenticationType" : {
+                    "value" : "[parameters('authenticationType')]"
+                },
+                "storageAccountSeed" : {
+                    "value": "[variables('storageAccountBasename')]"
+                },
+                "numberOfDataDisks" : {
+                    "value" : 4
+                },
+                "location" : {
+                    "value": "[parameters('location')]"
+                }
+            }
+        }
+    },
+    {
+        "name": "BrokerExtensions",
+        "type": "Microsoft.Resources/deployments",
+        "apiVersion": "2015-01-01",
+        "dependsOn": [
+            "['Microsoft.Resources/deployments/Zookeepers']",
+            "['Microsoft.Resources/deployments/BrokerVms']"
+        ],        
+        "properties": {
+            "mode": "Incremental",
+            "templateLink": {
+                "uri": "[concat(variables('scriptsUri'), 'extensions.json')]",
+                "contentVersion": "1.0.0.0"
+            },
+            "parameters": {
+                "clusterName" : {
+                    "value": "[parameters('clusterName')]"
+                },
+                "groupSize" : {
+                    "value": "[parameters('numBrokers')]"
+                },
+                "groupBasename" : {
+                    "value": "[variables('brokerBasename')]"
+                },
+                "numBrokers" : {
+                    "value": "[parameters('numBrokers')]"
+                },
+                "numZookeepers" : {
+                    "value": "[parameters('numZookeepers')]"
+                },
+                "numWorkers" : {
+                    "value": "[parameters('numWorkers')]"
+                },
+                "confluentVersion" : {
+                    "value": "[parameters('confluentVersion"
+                },
+                "scriptsUri" : {
+                    "value": "[variables('scriptsUri')]"
+                },
+                "kadminPassword" : {
+                    "value": "[parameters('kadminPassword')]"
+                },
+                "location" : {
+                    "value": "[parameters('location')]"
+                }
+            }
+        }
+    },
+    {
+        "name": "WorkerNics",
+        "type": "Microsoft.Resources/deployments",
+        "apiVersion": "2015-01-01",
+        "dependsOn": [
+            "[concat('Microsoft.Resources/deployments/', parameters('clusterName'), '-network')]"
+        ],
+        "properties": {
+            "mode": "Incremental",
+            "templateLink": {
+                "uri": "[concat(variables('scriptsUri'), 'nics.json')]",
+                "contentVersion": "1.0.0.0"
+            },
+            "parameters": {
+                "vnetName" : {
+                    "value": "[parameters('vnetName')]"
+                },
+                "groupSize" : {
+                    "value": "[parameters('numWorkers')]"
+                },
+                "groupBasename" : {
+                    "value": "[variables('workerBasename')]"
+                },
+                "publicIPAddressBasename" : {
+       	            "value": "[concat(parameters('clusterName'),'-',substring(uniquestring(resourceGroup().id),0,4),'-worker-')]"
+                },
+                "publicIPAddressType": {
+                    "value": "[variables('publicIPAddressType')]"
+                },
+                "subnetRef" : {
+                    "value" : "[variables('subnetRef')]"
+                },
+                "location" : {
+                    "value": "[parameters('location')]"
+                }
+            }
+        }
+    },
+    {
+        "name": "WorkerVms",
+        "type": "Microsoft.Resources/deployments",
+        "apiVersion": "2015-01-01",
+        "dependsOn": [
+            "['Microsoft.Resources/deployments/WorkerNics']"
+        ],        
+        "properties": {
+            "mode": "Incremental",
+            "templateLink": {
+                "uri": "[concat(variables('scriptsUri'), 'vms.json')]",
+                "contentVersion": "1.0.0.0"
+            },
+            "parameters": {
+                "scriptsUri" : {
+                    "value": "[variables('scriptsUri')]"
+                },
+                "clusterName" : {
+                    "value": "[parameters('clusterName')]"
+                },
+                "groupSize" : {
+                    "value": "[parameters('numWorkers')]"
+                },
+                "groupBasename" : {
+                    "value": "[variables('workerBasename')]"
+                },
+                "groupClass" : {
+                    "value": "worker"
+                },
+                "vmSize" : {
+                    "value": "[parameters('vmSize')]"
+                },
+                "imagePublisher" : {
+                    "value": "[parameters('imagePublisher')]"
+                },
+                "imageOffer" : {
+                    "value": "[parameters('imageOffer')]"
+                },
+                "imageSKU" : {
+                    "value": "[parameters('imageSKU')]"
+                },
+                "imageVersion" : {
+                    "value": "[parameters('imageVersion')]"
+                },
+                "imagePlan" : {
+                    "value": "[parameters('imagePlan')]"
+                },
+                "adminUsername" : {
+                    "value": "[parameters('adminUsername')]"
+                },
+                "adminPassword" : {
+                    "value": "[parameters('adminPassword')]"
+                },
+                "sshKey" : {
+                    "value" : "[parameters('sshKey')]"
+                },    
+                "authenticationType" : {
+                    "value" : "[parameters('authenticationType')]"
+                },
+                "storageAccountSeed" : {
+                    "value": "[variables('storageAccountBasename')]"
+                },
+                "numberOfDataDisks" : {
+                    "value" : 1
+                },
+                "location" : {
+                    "value": "[parameters('location')]"
+                }
+            }
+        }
+    },
+    {
+        "name": "WorkerExtensions",
+        "type": "Microsoft.Resources/deployments",
+        "apiVersion": "2015-01-01",
+        "dependsOn": [
+            "['Microsoft.Resources/deployments/Zookeepers']",
+            "['Microsoft.Resources/deployments/BrokerVms']",
+            "['Microsoft.Resources/deployments/WorkerVms']"
+        ],        
+        "properties": {
+            "mode": "Incremental",
+            "templateLink": {
+                "uri": "[concat(variables('scriptsUri'), 'extensions.json')]",
+                "contentVersion": "1.0.0.0"
+            },
+            "parameters": {
+                "clusterName" : {
+                    "value": "[parameters('clusterName')]"
+                },
+                "groupSize" : {
+                    "value": "[parameters('numWorkers')]"
+                },
+                "groupBasename" : {
+                    "value": "[variables('workerBasename')]"
+                },
+                "numBrokers" : {
+                    "value": "[parameters('numBrokers')]"
+                },
+                "numZookeepers" : {
+                    "value": "[parameters('numZookeepers')]"
+                },
+                "numWorkers" : {
+                    "value": "[parameters('numWorkers')]"
+                },
+                "confluentVersion" : {
+                    "value": "[parameters('confluentVersion"
+                },
+                "scriptsUri" : {
+                    "value": "[variables('scriptsUri')]"
+                },
+                "kadminPassword" : {
+                    "value": "[parameters('kadminPassword')]"
+                },
+                "location" : {
+                    "value": "[parameters('location')]"
+                }
+            }
+        }
+    }
+    ],
+    "outputs": {
+        "vms": {
+            "type": "string",
+            "value": "[concat(variables('scriptsUri'), parameters('vmSize'), '.json')]"
+        }
+    }    
+}
+

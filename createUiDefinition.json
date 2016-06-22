@@ -1,0 +1,287 @@
+{
+  "handler": "Microsoft.Compute.MultiVm",
+  "version": "0.0.1-preview",
+  "parameters": {
+    "basics": [
+      {
+        "name": "clusterName",
+        "type": "Microsoft.Common.TextBox",
+        "label": "Confluent Cluster name",
+        "toolTip": "Unique identifier for the Confluent cluster.",
+        "constraints": {
+          "required": true,
+          "regex": "^[a-z0-9]{3,24}$",
+          "validationMessage": "Cluster names must be between 3 and 24 characters long, and can contain only numbers and lowercase letters."
+        }
+      },
+      {
+        "name": "adminUsername",
+        "type": "Microsoft.Compute.UserNameTextBox",
+        "label": "SysAdmin Username",
+        "toolTip": "Admin username for the virtual machines",
+        "constraints": {
+          "required": true,
+          "regex": "^[A-z][A-z0-9]{4,15}$",
+          "validationMessage": "Admin username between 5 and 16 characters long, and can contain only letters and numbers."
+        },
+        "osPlatform": "Linux"
+      },
+      {
+        "name": "SSHCredentials",
+        "type": "Microsoft.Compute.CredentialsCombo",
+        "label": {
+          "authenticationType": "Authentication type",
+          "password": "Password",
+          "confirmPassword": "Confirm password",
+          "sshPublicKey": "SSH public key"
+        },
+        "toolTip": {
+          "authenticationType": "",
+          "password": "",
+          "sshPublicKey": ""
+        },
+        "constraints": {
+          "required": true
+        },
+        "options": {
+          "hideConfirmation": false
+        },
+        "osPlatform": "Linux"
+      }
+    ],
+    "steps": [
+      {
+        "name": "ConfluentClusterConfig",
+        "label": "Cluster settings",
+        "subLabel": {
+          "preValidation": "Configure the cluster",
+          "postValidation": "Done"
+        },
+        "bladeTitle": "Cluster cluster settings",
+        "elements": [
+          {
+            "name": "clusterVmSize",
+            "type": "Microsoft.Compute.SizeSelector",
+            "label": "Virtual machine size",
+            "toolTip": "The size of virtual machine to provision for each cluster node.",
+            "recommendedSizes": [
+              "Standard_D3",
+              "Standard_D2",
+              "Standard_DS3",
+              "Standard_DS2",
+              "Standard_DS12",
+              "Standard_DS11"
+            ],
+            "constraints": {
+              "allowedSizes": [
+                "Standard_D3",
+                "Standard_D2",
+                "Standard_DS3",
+                "Standard_DS2",
+                "Standard_DS12",
+                "Standard_DS11"
+              ]
+            },
+            "osPlatform": "Linux",
+            "count": "[add(steps('ConfluentClusterConfig').brokerNodeCount,add(steps('ConfluentClusterConfig').zookeeperNodeCount,steps('ConfluentClusterConfig').workerNodeCount))]"
+          },
+          {
+            "name": "brokerNodeCount",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Number of Kafka Brokers",
+            "defaultValue": "3",
+            "toolTip": "The number of virtual machines (nodes) to provision for the Kafka cluster.",
+            "constraints": {
+              "allowedValues": [
+                {
+                  "label": "3",
+                  "value": 3
+                },
+                {
+                  "label": "4",
+                  "value": 4
+                },
+                {
+                  "label": "5",
+                  "value": 5
+                },
+                {
+                  "label": "6",
+                  "value": 6
+                },
+                {
+                  "label": "7",
+                  "value": 7
+                },
+                {
+                  "label": "8",
+                  "value": 8
+                }
+              ]
+            }
+          },
+          {
+            "name": "zookeeperNodeCount",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Isolated zookeeper nodes",
+            "defaultValue": "0",
+            "toolTip": "(Optional) Zookeeper nodes isolated from Kafka brokers",
+            "constraints": {
+              "allowedValues": [
+                {
+                  "label": "0",
+                  "value": 0
+                },
+                {
+                  "label": "1",
+                  "value": 1
+                },
+                {
+                  "label": "3",
+                  "value": 3
+                }
+              ]
+            }
+          },
+          {
+            "name": "workerNodeCount",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Worker Nodes",
+            "defaultValue": "1",
+            "toolTip": "Worker nodes to host producers and consumers",
+            "constraints": {
+              "allowedValues": [
+                {
+                  "label": "1",
+                  "value": 1
+                },
+                {
+                  "label": "2",
+                  "value": 2
+                },
+                {
+                  "label": "3",
+                  "value": 3
+                },
+                {
+                  "label": "4",
+                  "value": 4
+                },
+                {
+                  "label": "5",
+                  "value": 5
+                },
+                {
+                  "label": "6",
+                  "value": 6
+                },
+                {
+                  "label": "7",
+                  "value": 7
+                },
+                {
+                  "label": "8",
+                  "value": 8
+                }
+              ]
+            }
+          },
+          {
+            "name": "confluentVersion",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Confluent Version",
+            "defaultValue": "3.0.0",
+            "toolTip": "The version of Confluent Software that you want to use for this cluster.",
+            "constraints": {
+              "allowedValues": [
+                {
+                  "label": "3.0.0",
+                  "value": "3.0.0"
+                }
+              ]
+            }
+          },
+          {
+            "name": "confluentPassword",
+            "type": "Microsoft.Common.PasswordBox",
+            "label": "Confluent Admin password",
+            "toolTip": "The password for Confluent administrator (kadmin).",
+            "constraints": {
+              "required": true,
+              "regex": "^(?:(?=.*[a-z])(?:(?=.*[A-Z])(?=.*[\\d\\W])|(?=.*\\W)(?=.*\\d))|(?=.*\\W)(?=.*[A-Z])(?=.*\\d)).{6,30}$",
+              "validationMessage": "The password must be between 6 and 30 characters long, and contain characters from at least 3 of the following groups: uppercase characters, lowercase characters, numbers, and special characters."
+            }
+          }
+        ]
+      },
+      {
+        "name": "networkInfo",
+        "label": "Network information",
+        "subLabel": {
+          "preValidation": "Provide network information",
+          "postValidation": "Done"
+        },
+        "bladeTitle": "Network information",
+        "elements": [
+          {
+            "name": "vnetSelector",
+            "type": "Microsoft.Network.VirtualNetworkCombo",
+            "label": {
+              "virtualNetwork": "Virtual network",
+              "subnets": "Subnets"
+            },
+            "toolTip": {
+              "virtualNetwork": "",
+              "subnets": ""
+            },
+            "defaultValue": {
+              "name": "vnet01",
+              "addressPrefixSize": "/16"
+            },
+            "constraints": {
+              "minAddressPrefixSize": "/16"
+            },
+            "options": {
+              "hideExisting": false
+            },
+            "subnets": {
+              "subnet1": {
+                "label": "Subnet",
+                "defaultValue": {
+                  "name": "subnet-1",
+                  "addressPrefixSize": "/24"
+                },
+                "constraints": {
+                  "minAddressPrefixSize": "/24",
+                  "minAddressCount": 12,
+                  "requireContiguousAddresses": true
+                }
+              }
+            },
+            "visible": true
+          }
+        ]
+      }
+    ],
+    "outputs": {
+      "clusterName": "[basics('clusterName')]",
+      "adminUsername": "[basics('adminUsername')]",
+      "authenticationType": "[basics('SSHCredentials').authenticationType]",
+      "adminPassword": "[basics('SSHCredentials').password]",
+      "sshKey": "[basics('SSHCredentials').sshPublicKey]",
+      "numBrokers": "[steps('ConfluentClusterConfig').brokerNodeCount]",
+      "numZookeepers": "[steps('ConfluentClusterConfig').zookeeperNodeCount]",
+      "numWorkers": "[steps('ConfluentClusterConfig').workerNodeCount]",
+      "vmSize": "[steps('ConfluentClusterConfig').clusterVmSize]",
+      "confluentVersion": "[steps('ConfluentClusterConfig').confluentVersion]",
+      "kadminPassword": "[steps('ConfluentClusterConfig').confluentPassword]",
+      "vnetNewOrExisting": "[steps('networkInfo').vnetSelector.newOrExisting]",
+      "vnetName": "[steps('networkInfo').vnetSelector.name]",
+      "vnetAddressPrefix": "[steps('networkInfo').vnetSelector.addressPrefix]",
+      "vnetSubnetName": "[steps('networkInfo').vnetSelector.subnets.subnet1.name]",
+      "vnetSubnetAddressPrefix": "[steps('networkInfo').vnetSelector.subnets.subnet1.addressPrefix]",
+      "vnetResourceGroupName": "[steps('networkInfo').vnetSelector.resourceGroup]",
+      "location": "[location()]"
+    }
+  }
+}

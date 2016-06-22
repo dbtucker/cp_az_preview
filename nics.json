@@ -1,0 +1,81 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json# ",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "vnetName": {
+            "type": "string",
+            "defaultValue": ""
+        },
+        "groupSize": {
+            "type": "int"
+        },
+        "groupBasename": {
+            "type": "string",
+            "defaultValue": ""
+        },
+        "publicIPAddressBasename" : {
+            "type" : "string",
+            "defaultValue": ""
+        },
+        "publicIPAddressType" : {
+            "type" : "string",
+            "defaultValue": ""
+        },
+        "subnetRef" : {
+            "type" : "string",
+            "defaultValue": ""            
+        },
+        "location": {
+            "type": "string"
+        }
+    },
+    "variables": {},
+    "resources": [
+    {
+      "apiVersion": "2015-06-15",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[concat(parameters('groupBasename'), copyIndex(1), '-publicIP')]",
+      "location": "[parameters('location')]",
+      "copy": {
+          "name": "publicIPLoop",
+          "count": "[parameters('groupSize')]"
+      },
+      "properties": {
+          "publicIPAllocationMethod": "[parameters('publicIPAddressType')]",
+          "dnsSettings": {
+       	      "domainNameLabel": "[concat(parameters('publicIPAddressBasename'),copyIndex(1))]"
+          }
+      }
+    },
+    {
+        "apiVersion": "2015-06-15",
+        "type": "Microsoft.Network/networkInterfaces",
+        "name": "[concat(parameters('groupBasename'), copyIndex(1), '-nic')]",
+        "location": "[parameters('location')]",
+        "dependsOn": [
+            "[concat('Microsoft.Network/publicIPAddresses/', parameters('groupBasename'), copyIndex(1), '-publicIP')]"
+        ],
+        "copy": {
+            "name": "nicLoop",
+            "count": "[parameters('groupSize')]"
+        },
+        "properties": {
+            "ipConfigurations": [
+            {
+                "name": "ipconfig1",
+                "properties": {
+                    "privateIPAllocationMethod": "Dynamic",
+                    "subnet": {
+                        "id": "[parameters('subnetRef')]"
+                    },
+                    "publicIPAddress": {
+                        "id": "[resourceId('Microsoft.Network/publicIPAddresses',concat(parameters('groupBasename'), copyIndex(1), '-publicIP'))]"
+                    }
+                }
+            }
+            ]
+        }
+    }
+    ]
+}
+

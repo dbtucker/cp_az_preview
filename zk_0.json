@@ -1,0 +1,82 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json# ",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "scriptsUri": {
+            "type": "string"
+        },
+        "clusterName": {
+            "type": "string"
+        },
+        "numBrokers": {
+            "type": "int"
+        },
+        "numZookeepers": {
+            "type": "int"
+        },
+        "numWorkers": {
+            "type": "int"
+        },
+        "confluentVersion": {
+            "type": "string"
+        },
+        "vmSize" : {
+            "type": "string",
+            "defaultValue": "Standard_D2"
+        },
+        "imagePublisher": {
+            "type": "string"
+        },
+        "imageOffer": {
+            "type": "string"
+        },
+        "imageSKU": {
+            "type": "string"
+        },
+        "imageVersion": {
+            "type": "string",
+            "defaultValue": "latest"
+        },
+        "imagePlan": {
+            "type": "string",
+            "defaultValue": "no"
+        },
+        "adminUsername": {
+            "type": "securestring"
+        },
+        "adminPassword": {
+            "type": "securestring"
+        },
+        "kadminPassword": {
+            "type": "securestring"
+        },
+        "sshKey": {
+            "type": "securestring"
+        },        
+        "authenticationType": {
+            "type": "string",
+            "defaultValue": "password",
+            "allowedValues": [
+                "password",
+                "sshPublicKey"
+            ]
+        },
+        "storageAccountBasename": {
+            "type": "string"
+        },
+        "vnetName": {
+            "type": "string"
+        },
+        "vnetSubnetName": {
+            "type": "string"
+        },
+        "vnetResourceGroupName": {
+            "type": "string"
+        },
+        "location": {
+            "type": "string"
+        }                
+    },
+    "variables": {},
+    "resources": []
+}

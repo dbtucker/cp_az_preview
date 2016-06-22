@@ -1,0 +1,244 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json# ",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "scriptsUri": {
+            "type": "string"
+        },
+        "clusterName": {
+            "type": "string"
+        },
+        "groupSize": {
+            "type": "int"
+        },
+        "groupBasename": {
+            "type": "string"
+        },
+        "groupClass": {
+            "type": "string"
+        },
+        "vmSize" : {
+            "type": "string",
+            "defaultValue": "Standard_D2"
+        },
+        "imagePublisher": {
+            "type": "string"
+        },
+        "imageOffer": {
+            "type": "string"
+        },
+        "imageSKU": {
+            "type": "string"
+        },
+        "imageVersion": {
+            "type": "string",
+            "defaultValue": "latest"
+        },
+        "imagePlan": {
+            "type": "string",
+            "defaultValue": "no"
+        },
+        "adminUsername": {
+            "type": "securestring"
+        },
+        "adminPassword": {
+            "type": "securestring",
+            "defaultValue": ""
+        },
+        "sshKey": {
+            "type": "securestring",
+            "defaultValue": ""
+        },        
+        "authenticationType": {
+            "type": "string",
+            "defaultValue": "password",
+            "allowedValues": [
+                "password",
+                "sshPublicKey"
+            ]
+        },
+        "storageAccountSeed": {
+            "type": "string"
+        },
+        "numberOfDataDisks": {
+            "type": "int",
+            "defaultValue": "2",
+            "allowedValues": [ 0, 1, 2, 4, 8 ]
+        },
+        "location": {
+            "type": "string"
+        }        
+    },
+    "variables": {
+        "storageAccountBasename": "[concat(parameters('storageAccountSeed'),parameters('groupClass'),'sa')]",
+        "storageAccountTypeStandard_A0": "Standard_LRS",
+        "storageAccountTypeStandard_A1": "Standard_LRS",
+        "storageAccountTypeStandard_A2": "Standard_LRS",
+        "storageAccountTypeStandard_A3": "Standard_LRS",
+        "storageAccountTypeStandard_A4": "Standard_LRS",
+        "storageAccountTypeStandard_A5": "Standard_LRS",
+        "storageAccountTypeStandard_A6": "Standard_LRS",
+        "storageAccountTypeStandard_A7": "Standard_LRS",
+        "storageAccountTypeStandard_A8": "Standard_LRS",
+        "storageAccountTypeStandard_A9": "Standard_LRS",
+        "storageAccountTypeStandard_A10": "Standard_LRS",
+        "storageAccountTypeStandard_A11": "Standard_LRS",
+        "storageAccountTypeStandard_D1": "Standard_LRS",
+        "storageAccountTypeStandard_D2": "Standard_LRS",
+        "storageAccountTypeStandard_D3": "Standard_LRS",
+        "storageAccountTypeStandard_D4": "Standard_LRS",
+        "storageAccountTypeStandard_D11": "Standard_LRS",
+        "storageAccountTypeStandard_D12": "Standard_LRS",
+        "storageAccountTypeStandard_D13": "Standard_LRS",
+        "storageAccountTypeStandard_D14": "Standard_LRS",
+        "storageAccountTypeStandard_D1_v2": "Standard_LRS",
+        "storageAccountTypeStandard_D2_v2": "Standard_LRS",
+        "storageAccountTypeStandard_D3_v2": "Standard_LRS",
+        "storageAccountTypeStandard_D4_v2": "Standard_LRS",
+        "storageAccountTypeStandard_D5_v2": "Standard_LRS",
+        "storageAccountTypeStandard_D11_v2": "Standard_LRS",
+        "storageAccountTypeStandard_D12_v2": "Standard_LRS",
+        "storageAccountTypeStandard_D13_v2": "Standard_LRS",
+        "storageAccountTypeStandard_D14_v2": "Standard_LRS",
+        "storageAccountTypeStandard_D15_v2": "Standard_LRS",
+        "storageAccountTypeStandard_DS1": "Premium_LRS",
+        "storageAccountTypeStandard_DS2": "Premium_LRS",
+        "storageAccountTypeStandard_DS3": "Premium_LRS",
+        "storageAccountTypeStandard_DS4": "Premium_LRS",
+        "storageAccountTypeStandard_DS11": "Premium_LRS",
+        "storageAccountTypeStandard_DS12": "Premium_LRS",
+        "storageAccountTypeStandard_DS13": "Premium_LRS",
+        "storageAccountTypeStandard_DS14": "Premium_LRS",
+        "storageAccountTypeStandard_DS1_v2": "Premium_LRS",
+        "storageAccountTypeStandard_DS2_v2": "Premium_LRS",
+        "storageAccountTypeStandard_DS3_v2": "Premium_LRS",
+        "storageAccountTypeStandard_DS4_v2": "Premium_LRS",
+        "storageAccountTypeStandard_DS5_v2": "Premium_LRS",
+        "storageAccountTypeStandard_DS11_v2": "Premium_LRS",
+        "storageAccountTypeStandard_DS12_v2": "Premium_LRS",
+        "storageAccountTypeStandard_DS13_v2": "Premium_LRS",
+        "storageAccountTypeStandard_DS14_v2": "Premium_LRS",
+        "storageAccountTypeStandard_DS15_v2": "Premium_LRS",
+        "storageAccountTypeStandard_G1": "Standard_LRS",
+        "storageAccountTypeStandard_G2": "Standard_LRS",
+        "storageAccountTypeStandard_G3": "Standard_LRS",
+        "storageAccountTypeStandard_G4": "Standard_LRS",
+        "storageAccountTypeStandard_G5": "Standard_LRS",
+        "storageAccountTypeStandard_GS1": "Premium_LRS",
+        "storageAccountTypeStandard_GS2": "Premium_LRS",
+        "storageAccountTypeStandard_GS3": "Premium_LRS",
+        "storageAccountTypeStandard_GS4": "Premium_LRS",
+        "storageAccountTypeStandard_GS5": "Premium_LRS",
+        "storageAccountType" : "[variables(concat('storageAccountType', parameters('vmSize')))]",
+        "maxDisksStandard_LRS": 40,
+        "maxDisksPremium_LRS": 35,
+        "maxDisksPerStorageAccount": "[variables(concat('maxDisks', variables('storageAccountType')))]",
+        "numberOfDisksPerNode": "[add(parameters('numberOfDataDisks'), 1)]",
+        "numberOfNodesPerStorageAccount": "[div(variables('maxDisksPerStorageAccount'), variables('numberOfDisksPerNode'))]",
+        "module" : "[mod(parameters('groupSize'), variables('numberOfNodesPerStorageAccount'))]",
+        "moduleReplacing9" : "[replace(string(variables('module')), '9', '1')]",
+        "moduleReplacing8" : "[replace(string(variables('moduleReplacing9')), '8', '1')]",
+        "moduleReplacing7" : "[replace(string(variables('moduleReplacing8')), '7', '1')]",
+        "moduleReplacing6" : "[replace(string(variables('moduleReplacing7')), '6', '1')]",
+        "moduleReplacing5" : "[replace(string(variables('moduleReplacing6')), '5', '1')]",
+        "moduleReplacing4" : "[replace(string(variables('moduleReplacing5')), '4', '1')]",
+        "moduleReplacing3" : "[replace(string(variables('moduleReplacing4')), '3', '1')]",                
+        "moduleReplacing2" : "[replace(string(variables('moduleReplacing3')), '2', '1')]",
+        "numStorageAccounts" : "[add(div(parameters('groupSize'), variables('numberOfNodesPerStorageAccount')), int(variables('moduleReplacing2')))]"
+    },
+    "resources": [
+      {
+        "name": "[concat(parameters('clusterName'), parameters('groupClass'), 'storage')]",
+        "type": "Microsoft.Resources/deployments",
+        "apiVersion": "2015-01-01",
+        "properties": {
+          "mode": "Incremental",
+          "templateLink": {
+            "uri": "[concat(parameters('scriptsUri'), 'storage.json')]",
+            "contentVersion": "1.0.0.0"
+          },
+          "parameters": {
+            "storageAccountBasename": {
+              "value": "[variables('storageAccountBasename')]"
+            },
+            "numStorageAccounts": {
+              "value": "[variables('numStorageAccounts')]"
+            },
+            "storageAccountType": {
+              "value": "[variables('storageAccountType')]"
+            },            
+            "location": {
+              "value": "[parameters('location')]"
+            }
+          }
+        }
+      },
+      {
+        "name": "[concat(parameters('clusterName'), parameters('groupClass'), 'vm', copyIndex(1))]",
+        "type": "Microsoft.Resources/deployments",
+        "apiVersion": "2015-01-01",
+        "dependsOn": [
+            "[concat('Microsoft.Resources/deployments/', parameters('clusterName'), parameters('groupClass'), 'storage')]"
+        ],        
+        "properties": {
+          "mode": "Incremental",
+          "templateLink": {
+            "uri": "[concat(parameters('scriptsUri'), 'vm.json')]",
+            "contentVersion": "1.0.0.0"
+          },
+          "parameters": {
+            "vmName": {
+                "value": "[concat(parameters('groupBasename'), copyIndex(1))]"
+            },
+            "vmSize" : {
+                "value": "[parameters('vmSize')]"
+            },
+            "imagePublisher": {
+                "value": "[parameters('imagePublisher')]"
+            },
+            "imageOffer": {
+                "value": "[parameters('imageOffer')]"
+            },
+            "imageSKU": {
+                "value": "[parameters('imageSKU')]"
+            },
+            "imageVersion": {
+                "value": "[parameters('imageVersion')]"
+            },
+            "imagePlan": {
+                "value": "[parameters('imagePlan')]"
+            },
+            "adminUsername": {
+                "value": "[parameters('adminUsername')]"
+            },
+            "adminPassword": {
+                "value": "[parameters('adminPassword')]"
+            },
+            "sshKey": {
+                "value": "[parameters('sshKey')]"
+            },
+            "authenticationType": {
+                "value": "[parameters('authenticationType')]"
+            },
+            "storageAccountName": {
+                "value": "[concat(variables('storageAccountBasename'), div(copyIndex(), variables('numberOfNodesPerStorageAccount')))]"
+            },
+            "numberOfDataDisks":{
+                "value": "[parameters('numberOfDataDisks')]"
+            },
+            "nicName" : {
+                "value": "[concat(parameters('groupBasename'), copyIndex(1), '-nic')]"
+            },            
+            "location": {
+                "value": "[parameters('location')]"
+            }        
+          }
+        },
+        "copy": {
+          "name": "[concat('vmLoop-', parameters('groupClass'))]",
+          "count": "[parameters('groupSize')]"
+        }          
+      }      
+    ],
+    "outputs" : {}
+}

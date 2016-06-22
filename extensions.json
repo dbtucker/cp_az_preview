@@ -1,0 +1,67 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json# ",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "clusterName": {
+            "type": "string"
+        },
+        "groupSize": {
+            "type": "int"
+        },
+        "groupBasename": {
+            "type": "string"
+        },
+        "numBrokers": {
+            "type": "int"
+        },
+        "numZookeepers": {
+            "type": "int"
+        },
+        "numWorkers": {
+            "type": "int"
+        },
+        "confluentVersion": {
+            "type": "string"
+        },
+        "scriptsUri": {
+            "type": "string"
+        },
+        "kadminPassword": {
+            "type": "securestring"
+        },
+        "location": {
+            "type": "string"
+        }
+    },
+    "resources": [
+    {
+        "name": "[concat(parameters('groupBasename'),copyIndex(1),'/extension')]",
+        "type": "Microsoft.Compute/virtualMachines/extensions",
+        "apiVersion": "2015-06-15",
+        "location": "[parameters('location')]",
+        "copy" : {
+            "name" : "extLoop",
+            "count": "[parameters('groupSize')]"
+        },
+        "properties": {
+            "publisher": "Microsoft.OSTCExtensions",
+            "type": "CustomScriptForLinux",
+            "typeHandlerVersion": "1.4",
+            "settings": {
+                "fileUris": [
+                    "[concat(parameters('scriptsUri'), 'gen-cluster-hosts.sh')]",
+                    "[concat(parameters('scriptsUri'), 'prepare-disks.sh')]",
+                    "[concat(parameters('scriptsUri'), 'prepare-node.sh')]",
+                    "[concat(parameters('scriptsUri'), 'configure-node.sh')]",
+                    "[concat(parameters('scriptsUri'), 'cp-deploy.sh')]"
+                ]
+            },
+            "protectedSettings": {
+                "commandToExecute": "[concat('sh cp-deploy.sh ', ' --basename ', parameters('clusterName'), ' --num-brokers ', parameters('numBrokers'), ' --num-zookeepers ', parameters('numZookeepers'), ' --num-workers ', parameters('numWorkers'), ' --password ',  parameters('kadminPassword'))]"
+            }
+        }
+    }        
+    ]
+}
+
+
