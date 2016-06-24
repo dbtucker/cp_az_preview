@@ -17,7 +17,8 @@
 
 set -x
 
-LOG=/tmp/prepare-disks.log
+SCRIPT_NAME=prepare-disks
+LOG=/tmp/${SCRIPT_NAME}.log
 
 # Inputs :
 #	DATA_DISKS (optional)
@@ -56,7 +57,8 @@ find_data_disks() {
         swapon -s | grep -q -w $dev
         [ $? -eq 0 ] && continue
 
-        if which pvdisplay &> /dev/null; then
+        which pvdisplay &> /dev/null
+        if [ $? -eq 0 ]; then
             pvdisplay $dev &> /dev/null
             [ $? -eq 0 ] && continue
         fi
@@ -169,7 +171,7 @@ mount_data_disks() {
 #
 main() {
 
-	echo "${BASH_SOURCE[0]} script started at "`date` >> $LOG
+	echo "${SCRIPT_NAME} ($0) script started at "`date` >> $LOG
 
 	mount_data_disks
 
@@ -190,7 +192,7 @@ main() {
 		fi
 	fi
 
-	echo "${BASH_SOURCE[0]} script finished at "`date` >> $LOG
+	echo "${SCRIPT_NAME} ($0) script finished at "`date` >> $LOG
 
 	return 0
 }
@@ -205,8 +207,12 @@ set +x
 # We want the script to be sourced rather than simply run
 # but be careful about exit code
 #	 NOTE: This logic requires bash 3.x or greater.
+#		AND DOES NOT WORK ON UBUNTU (where default shell is dash)
 #
-if [ "${BASH_SOURCE[0]}" != $0 ] ; then
+#			if [ "${BASH_SOURCE[0]}" != $0 ] ; then
+
+echo "$0" | grep -q $SCRIPT_NAME
+if [ $? -ne 0 ] ; then 
 	return $exitCode
 else
 	exit $exitCode

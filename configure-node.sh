@@ -310,7 +310,7 @@ configure_rest_proxy() {
 configure_control_center() {
 	[ ! -f $CONTROL_CENTER_CFG ] && return 1
 
-	numBrokers=`echo ${brokers//,/ } | wc -w`
+	local numBrokers=`echo ${brokers//,/ } | wc -w`
 
 	cc_topics_replicas=3
 	[ $cc_topics_replicas -gt $numBrokers ] && cc_topics_replicas=$numBrokers
@@ -354,7 +354,7 @@ configure_control_center() {
 	set_property $CC_CONNECT_CFG "value.converter.schema.registry.url" "http://$srconnect" 0
 
 		# Set the data location to the last disk in our list
-	[ -n "$DATA_DIRS" ] && set_property $CC_CONNECT_CFG "confluent.controlcenter.data.dir" "${DATA_DIRS##*,}"
+	[ -n "$DATA_DIRS" ] && set_property $CC_CONNECT_CFG "confluent.controlcenter.data.dir" "${DATA_DIRS##* }"
 }
 
 configure_workers() {
@@ -376,8 +376,8 @@ configure_workers() {
 		set_property $KAFKA_CONNECT_CFG  "value.converter" "io.confluent.connect.avro.AvroConverter"
 		set_property $KAFKA_CONNECT_CFG  "value.converter.schema.registry.url" "http://${srconnect}"
 
-		set_property $KAFKA_CONNECT_CFG  "consumer.interceptor.classes" "io.confluent.monitoring.clients.interceptor.MonitoringConsumer" 
-		set_property $KAFKA_CONNECT_CFG  "producer.interceptor.classes" "io.confluent.monitoring.clients.interceptor.MonitoringProducer" 
+		set_property $KAFKA_CONNECT_CFG  "consumer.interceptor.classes" "io.confluent.monitoring.clients.interceptor.MonitoringConsumerInterceptor" 
+		set_property $KAFKA_CONNECT_CFG  "producer.interceptor.classes" "io.confluent.monitoring.clients.interceptor.MonitoringProducerInterceptor" 
 	fi
 
 		# There are multiple "connect-*.properties" files in
@@ -482,6 +482,8 @@ resolve_zknodes() {
     return 0
 }
 
+# Kludgy function to make sure the cluster is formed before
+# proceeding with the remaining startup activities.
 wait_for_brokers() {
     BROKER_WAIT=${1:-300}
 
@@ -493,6 +495,27 @@ wait_for_brokers() {
         SWAIT=$[SWAIT - $STIME]
     	${CP_HOME}/bin/kafka-topics --list --zookeeper ${zconnect} &> /dev/null
     done
+
+	[ $SWAIT -le 0 ] && return 1
+
+		# Now that we know the ZK cluster is on line, we can check the number
+		# of registered brokers.  Ideally, we'd just look for "enough" brokers,
+		# hence the "targetBrokers" logic below
+		#
+	local numBrokers=`echo ${brokers//,/ } | wc -w`
+	local targetBrokers=$numBrokers
+	[ $targetBrokers -gt 5 ] && targetBrokers=5
+
+	local runningBrokers=$( echo "ls /brokers/ids" | $CP_HOME/bin/zookeeper-shell ${zconnect%%,*} | grep '^\[' | tr -d "[:punct:]" | wc -w )
+    while [ ${runningBrokers:-0} -lt $targetBrokers  -a  $SWAIT -gt 0 ] ; do
+        sleep $STIME
+        SWAIT=$[SWAIT - $STIME]
+		runningBrokers=$( echo "ls /brokers/ids" | $CP_HOME/bin/zookeeper-shell ${zconnect%%,*} | grep '^\[' | tr -d "[:punct:]" | wc -w )
+    done
+
+	[ $SWAIT -le 0 ] && return 1
+
+	return 0
 }
 
 
@@ -577,6 +600,8 @@ start_control_center() {
 	BIN_DIR=$CP_HOME/bin
 
 		# Control Center on first broker only
+		# Control Center is VERY FRAGILE on start-up,
+		#	so we'll try a second time if the first try fails.
 	if [ "${workers%%,*}" = $THIS_HOST ] ; then
 		if [ -x $CP_HOME/initscripts/control-center-service ] ; then
 			ln -s  $CP_HOME/initscripts/control-center-service  /etc/init.d
@@ -585,6 +610,7 @@ start_control_center() {
 #			$CP_HOME/initscripts/control-center-service start
 #			/etc/init.d/control-center-service start
 			service control-center-service start
+			[ $? -ne 0 ] && service control-center-service start
 		else
 			$(cd $BIN_DIR/../logs; $BIN_DIR/control-center-start -daemon $CONTROL_CENTER_CFG > /dev/null)
 		fi
