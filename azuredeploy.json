@@ -3,7 +3,7 @@
     "contentVersion": "1.0.0.0",
     "parameters" : {
 		"artifactsBaseUrl": {
-			"defaultValue" : "https://raw.githubusercontent.com/dbtucker/cp_az_preview/master",
+			"defaultValue" : "https://raw.githubusercontent.com/confluentinc/public-azure/master",
 			"type": "string",
 			"metadata": {
 				"artifactsBaseUrl": "Base URL of the Publisher Template gallery package"
@@ -32,7 +32,7 @@
             }
         },
         "numWorkers": {
-            "defaultValue": 1,
+            "defaultValue": 0,
             "type": "int",
             "metadata": {
                  "description": "Number of producer/consumer workers."
@@ -59,7 +59,7 @@
         "imageSKU": {
             "defaultValue": "300",
             "type": "string",
-            "allowedValues": ["7.1", "14.04.4-LTS", "300"]
+            "allowedValues": ["7.1", "7.2", "14.04.4-LTS", "16.04.0-LTS", "300"]
         },
         "imageVersion": {
             "defaultValue": "latest",
@@ -146,7 +146,6 @@
         "location": {
             "type": "string",
             "defaultValue" : "West US",
-            "allowedValues": ["East US2", "West US", "West Europe", "South East Asia", "Japan East", "Japan West", "Australia East"],
             "metadata": {
                 "description": "Deployment location"
             }
@@ -185,7 +184,7 @@
     {
         "name": "[concat(parameters('clusterName'), '-network')]",
         "type": "Microsoft.Resources/deployments",
-        "apiVersion": "2015-01-01",
+        "apiVersion": "2016-02-01",
         "properties": {
             "mode": "Incremental",
             "templateLink": {
@@ -205,7 +204,7 @@
     {
         "name": "Zookeepers",
         "type": "Microsoft.Resources/deployments",
-        "apiVersion": "2015-01-01",
+        "apiVersion": "2016-02-01",
         "dependsOn": [
             "[concat('Microsoft.Resources/deployments/', parameters('clusterName'), '-network')]"
         ],
@@ -288,7 +287,7 @@
     {
         "name": "BrokerNics",
         "type": "Microsoft.Resources/deployments",
-        "apiVersion": "2015-01-01",
+        "apiVersion": "2016-02-01",
         "dependsOn": [
             "[concat('Microsoft.Resources/deployments/', parameters('clusterName'), '-network')]"
         ],
@@ -326,7 +325,7 @@
     {
         "name": "BrokerVms",
         "type": "Microsoft.Resources/deployments",
-        "apiVersion": "2015-01-01",
+        "apiVersion": "2016-02-01",
         "dependsOn": [
             "['Microsoft.Resources/deployments/BrokerNics']"
         ],        
@@ -397,7 +396,7 @@
     {
         "name": "BrokerExtensions",
         "type": "Microsoft.Resources/deployments",
-        "apiVersion": "2015-01-01",
+        "apiVersion": "2016-02-01",
         "dependsOn": [
             "['Microsoft.Resources/deployments/Zookeepers']",
             "['Microsoft.Resources/deployments/BrokerVms']"
@@ -445,7 +444,7 @@
     {
         "name": "WorkerNics",
         "type": "Microsoft.Resources/deployments",
-        "apiVersion": "2015-01-01",
+        "apiVersion": "2016-02-01",
         "dependsOn": [
             "[concat('Microsoft.Resources/deployments/', parameters('clusterName'), '-network')]"
         ],
@@ -483,7 +482,7 @@
     {
         "name": "WorkerVms",
         "type": "Microsoft.Resources/deployments",
-        "apiVersion": "2015-01-01",
+        "apiVersion": "2016-02-01",
         "dependsOn": [
             "['Microsoft.Resources/deployments/WorkerNics']"
         ],        
@@ -554,7 +553,7 @@
     {
         "name": "WorkerExtensions",
         "type": "Microsoft.Resources/deployments",
-        "apiVersion": "2015-01-01",
+        "apiVersion": "2016-02-01",
         "dependsOn": [
             "['Microsoft.Resources/deployments/Zookeepers']",
             "['Microsoft.Resources/deployments/BrokerVms']",

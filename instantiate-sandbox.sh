@@ -84,15 +84,17 @@ zknodes=$THIS_HOST
 brokers=$THIS_HOST
 cpparmEOF
 
+chmod a+x $AMI_SBIN/prepare-node.sh
 $AMI_SBIN/prepare-node.sh
 
 # Be sure to "source" the prepare-disks script so as to
 # set the DATA_DIRS environment variable for later use
-chmod a+x $BINDIR/prepare-disks.sh
+chmod a+x $AMI_SBIN/prepare-disks.sh
 . $AMI_SBIN/prepare-disks.sh
 
 # and now deploy our software
 #
+chmod a+x $AMI_SBIN/configure-node.sh
 $AMI_SBIN/configure-node.sh
 
 exit 0

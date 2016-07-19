@@ -21,7 +21,6 @@
         "toolTip": "Admin username for the virtual machines",
         "constraints": {
           "required": true,
-          "regex": "^[A-z][A-z0-9]{4,15}$",
           "validationMessage": "Admin username between 5 and 16 characters long, and can contain only letters and numbers."
         },
         "osPlatform": "Linux"
@@ -74,12 +73,24 @@
             ],
             "constraints": {
               "allowedSizes": [
+                "Standard_D4",
                 "Standard_D3",
                 "Standard_D2",
                 "Standard_DS3",
                 "Standard_DS2",
+                "Standard_DS13",
                 "Standard_DS12",
-                "Standard_DS11"
+                "Standard_DS11",
+                "Standard_D4_v2",
+                "Standard_D3_v2",
+                "Standard_D2_v2",
+                "Standard_DS13_v2",
+                "Standard_DS12_v2",
+                "Standard_DS11_v2",
+                "Standard_F4",
+                "Standard_F8",
+                "Standard_FS4",
+                "Standard_FS8"
               ]
             },
             "osPlatform": "Linux",
@@ -239,7 +250,7 @@
               "addressPrefixSize": "/16"
             },
             "constraints": {
-              "minAddressPrefixSize": "/16"
+              "minAddressPrefixSize": "/20"
             },
             "options": {
               "hideExisting": false

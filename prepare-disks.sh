@@ -57,9 +57,9 @@ find_data_disks() {
         swapon -s | grep -q -w $dev
         [ $? -eq 0 ] && continue
 
-        which pvdisplay &> /dev/null
+        which pvdisplay > /dev/null 2> /dev/null
         if [ $? -eq 0 ]; then
-            pvdisplay $dev &> /dev/null
+            pvdisplay $dev > /dev/null 2> /dev/null
             [ $? -eq 0 ] && continue
         fi
 

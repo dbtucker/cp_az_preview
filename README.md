@@ -15,7 +15,7 @@ Users can select which instance types to use; storage for each node is
 currently defined in the template itself: 4 1-TB volumes for each broker node.
 
 The Control Center interface to the cluster will be available at
-    https://[worker-1]:8443
+    https://[worker-1]:9021
 
 The system admin account will have login access, as well as the 
 Confluent Software Admin account (user "kadmin").   The password for 

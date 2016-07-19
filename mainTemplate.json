@@ -150,11 +150,6 @@
         "vmSize": {
             "type": "string",
             "defaultValue": "Standard_D2",
-            "allowedValues": ["Standard_D2_V2", "Standard_D3_V2", "Standard_D4_V2", "Standard_D11_V2", "Standard_D12_V2", "Standard_D13_V2", 
-                "Standard_DS2_V2", "Standard_DS3_V2", "Standard_DS4_V2", "Standard_DS11_V2", "Standard_DS12_V2", "Standard_DS13_V2", 
-                "Standard_D2", "Standard_D3", "Standard_D4", "Standard_D11", "Standard_D12", "Standard_D13", 
-				"Standard_DS2", "Standard_DS3", "Standard_DS4", "Standard_DS11", "Standard_DS12", "Standard_DS13",
-				"Standard_F4", "Standard_F8", "Standard_FS4", "Standard_FS8" ],
             "metadata": {
                 "description": "InstanceType to use for this deployment"
             }
@@ -181,7 +176,7 @@
     {
         "name": "[concat(parameters('clusterName'), '-network')]",
         "type": "Microsoft.Resources/deployments",
-        "apiVersion": "2015-01-01",
+        "apiVersion": "2016-02-01",
         "properties": {
             "mode": "Incremental",
             "templateLink": {
@@ -201,7 +196,7 @@
     {
         "name": "Zookeepers",
         "type": "Microsoft.Resources/deployments",
-        "apiVersion": "2015-01-01",
+        "apiVersion": "2016-02-01",
         "dependsOn": [
             "[concat('Microsoft.Resources/deployments/', parameters('clusterName'), '-network')]"
         ],
@@ -284,7 +279,7 @@
     {
         "name": "BrokerNics",
         "type": "Microsoft.Resources/deployments",
-        "apiVersion": "2015-01-01",
+        "apiVersion": "2016-02-01",
         "dependsOn": [
             "[concat('Microsoft.Resources/deployments/', parameters('clusterName'), '-network')]"
         ],
@@ -322,7 +317,7 @@
     {
         "name": "BrokerVms",
         "type": "Microsoft.Resources/deployments",
-        "apiVersion": "2015-01-01",
+        "apiVersion": "2016-02-01",
         "dependsOn": [
             "['Microsoft.Resources/deployments/BrokerNics']"
         ],        
@@ -393,7 +388,7 @@
     {
         "name": "BrokerExtensions",
         "type": "Microsoft.Resources/deployments",
-        "apiVersion": "2015-01-01",
+        "apiVersion": "2016-02-01",
         "dependsOn": [
             "['Microsoft.Resources/deployments/Zookeepers']",
             "['Microsoft.Resources/deployments/BrokerVms']"
@@ -441,7 +436,7 @@
     {
         "name": "WorkerNics",
         "type": "Microsoft.Resources/deployments",
-        "apiVersion": "2015-01-01",
+        "apiVersion": "2016-02-01",
         "dependsOn": [
             "[concat('Microsoft.Resources/deployments/', parameters('clusterName'), '-network')]"
         ],
@@ -479,7 +474,7 @@
     {
         "name": "WorkerVms",
         "type": "Microsoft.Resources/deployments",
-        "apiVersion": "2015-01-01",
+        "apiVersion": "2016-02-01",
         "dependsOn": [
             "['Microsoft.Resources/deployments/WorkerNics']"
         ],        
@@ -550,7 +545,7 @@
     {
         "name": "WorkerExtensions",
         "type": "Microsoft.Resources/deployments",
-        "apiVersion": "2015-01-01",
+        "apiVersion": "2016-02-01",
         "dependsOn": [
             "['Microsoft.Resources/deployments/Zookeepers']",
             "['Microsoft.Resources/deployments/BrokerVms']",

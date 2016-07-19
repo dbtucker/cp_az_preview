@@ -22,11 +22,14 @@
     "resources": [{
             "type": "Microsoft.Storage/storageAccounts",
             "name": "[concat(parameters('storageAccountBasename'), copyIndex())]",
-            "apiVersion": "2015-06-15",
+            "apiVersion": "2016-01-01",
             "location": "[parameters('location')]",
-            "properties": {
-                "accountType": "[parameters('storageAccountType')]"
+            "sku": {
+                "name": "[parameters('storageAccountType')]"
             },
+            "properties": {
+            },
+            "kind": "Storage",
             "copy": {
                 "name": "storageAccountLoop",
                 "count": "[parameters('numStorageAccounts')]"

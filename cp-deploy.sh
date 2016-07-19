@@ -108,7 +108,8 @@ export KADMIN_USER=${KADMIN_USER:-kadmin}
 export KADMIN_PASSWD=${KADMIN_PASSWD:-ConfAZ}
 export CONFLUENT_VERSION=${CONFLUENT_VERSION:-3.0.0} 
 
-sh $BINDIR/prepare-node.sh
+chmod a+x $BINDIR/prepare-node.sh
+$BINDIR/prepare-node.sh
 
 # Be sure to "source" the prepare-disks script so as to
 # set the DATA_DIRS environment variable for later use

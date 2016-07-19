@@ -46,7 +46,7 @@ add_epel_repo() {
 	if [ "${CVER%%.*}" -eq 5 ] ; then
 		EPEL_LOC="epel/5/x86_64/epel-release-5-4.noarch.rpm"
 	elif [ "${CVER%%.*}" -eq 7 ] ; then
-		EPEL_LOC="epel/7/x86_64/e/epel-release-7-6.noarch.rpm"
+		EPEL_LOC="epel/7/x86_64/e/epel-release-7-7.noarch.rpm"
 	else
 		EPEL_LOC="epel/6/x86_64/epel-release-6-8.noarch.rpm"
 	fi
@@ -95,6 +95,16 @@ install_os_tools() {
 	fi
 }
 
+install_openjdk_deb() {
+	apt-get install -y x11-utils
+	apt-get install -y openjdk-8-jdk openjdk-8-doc		# JDK 8 not available till 1604
+	[ $? -ne 0 ] && apt-get install -y openjdk-7-jdk openjdk-7-doc
+
+	jcmd=`readlink -f /usr/bin/java`
+	JAVA_HOME=${jcmd%/bin/java}
+	export JAVA_HOME
+}
+
 install_oracle_jdk_deb() {
     apt-get -y update
     apt-get install -y software-properties-common python-software-properties
@@ -113,9 +123,19 @@ install_oracle_jdk_deb() {
 	return 0
 }
 
+install_openjdk_rpm() {
+	yum install -y java-1.8.0-openjdk java-1.8.0-openjdk-devel
+#	yum install -y java-1.8.0-openjdk-javadoc
+
+	jcmd=`readlink -f /usr/bin/java`
+	JAVA_HOME=${jcmd%/bin/java}
+	[ -z "${JAVA_HOME}" ] && JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk
+	export JAVA_HOME
+}
+
 install_oracle_jdk_rpm() {
     JDK_RPM="http://download.oracle.com/otn-pub/java/jdk/7u75-b13/jdk-7u75-linux-x64.rpm"
-#    JDK_RPM="http://download.oracle.com/otn-pub/java/jdk/8u51-b16/jdk-8u51-linux-x64.rpm"
+#    JDK_RPM="http://download.oracle.com/otn-pub/java/jdk/8u91-b14/jdk-8u91-linux-x64.rpm"
 
     $(cd /tmp; curl -f -L -C - -b "oraclelicense=accept-securebackup-cookie" -O $JDK_RPM)
 
@@ -149,9 +169,11 @@ install_jdk() {
 		export JAVA_HOME=${jcmd%/bin/javac}
 	else
 		if which apt-get &> /dev/null ; then
-			install_oracle_jdk_deb
+#			install_oracle_jdk_deb
+			install_openjdk_deb
 		else
-			install_oracle_jdk_rpm
+#			install_oracle_jdk_rpm
+			install_openjdk_rpm
 		fi
 	fi
 
@@ -176,11 +198,18 @@ update_admin_keys() {
 	curl -f ${murl_top}/public-keys/0/openssh-key > $INFRA_SSH_KEY_FILE
 
 		# For Azure cloud platform, we can use the admin user keys
-	if [ $? -ne 0  -a  -r /etc/sudoers.d/waagent ] ; then
-		CLOUD_INIT_USER=$(head /etc/sudoers.d/waagent | awk '{print $1}')
-		CI_USER_DIR=`eval "echo ~${CLOUD_INIT_USER}"`
-		[ -f ${CI_USER_DIR}/.ssh/authorized_keys ] && \
-			$(cp -p ${CI_USER_DIR}/.ssh/authorized_keys $INFRA_SSH_KEY_FILE)
+	if [ $? -ne 0  ] ; then
+		if [  -r /etc/sudoers.d/waagent ] ; then
+			CLOUD_INIT_USER=$(head -1 /etc/sudoers.d/waagent | awk '{print $1}')
+		elif [ -r /etc/sudoers.d/90-cloud-init-users ] ; then
+			CLOUD_INIT_USER=$(tail -1 /etc/sudoers.d/90-cloud-init-users | awk '{print $1}')
+		fi
+
+		if [ -n "${CLOUD_INIT_USER:-}" ] ; then
+			CI_USER_DIR=`eval "echo ~${CLOUD_INIT_USER}"`
+			[ -f ${CI_USER_DIR}/.ssh/authorized_keys ] && \
+				$(cp -p ${CI_USER_DIR}/.ssh/authorized_keys $INFRA_SSH_KEY_FILE)
+		fi
 	fi
 
 	[ -f $INFRA_SSH_KEY_FILE ] && \

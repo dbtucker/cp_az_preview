@@ -73,6 +73,7 @@ REST_PROXY_CFG=${CP_HOME}/etc/kafka-rest/kafka-rest.properties
 SCHEMA_REG_CFG=$CP_HOME/etc/schema-registry/schema-registry.properties
 KAFKA_CONNECT_CFG=$CP_HOME/etc/kafka/connect-distributed.properties
 LEGACY_CONSUMER_CFG=$CP_HOME/etc/kafka/consumer.properties
+LEGACY_PRODUCER_CFG=$CP_HOME/etc/kafka/producer.properties
 CONTROL_CENTER_CFG=$CP_HOME/etc/confluent-control-center/control-center.properties
 
 CONF_SCHEMA_CLASS='io.confluent.kafka.schemaregistry.rest.SchemaRegistryMain'
@@ -253,6 +254,9 @@ configure_confluent_zk() {
 configure_kafka_broker() {
 	[ ! -f $BROKER_CFG ] && return 1
 
+	local ncpu=$(grep ^processor /proc/cpuinfo | wc -l)
+	ncpu=${ncpu:-2}
+
 	myid=0
 	bidx=1
 	for bnode in ${brokers//,/ } ; do
@@ -281,7 +285,14 @@ configure_kafka_broker() {
 		done
 
 		set_property $BROKER_CFG "log.dirs" "${DATA_DIRS// /,}"
+		set_property $BROKER_CFG "num.recovery.threads.per.data.dir" $[ncpu*4]
+
+			# Could also bump num.io.threads (default: 8) and
+			# num.network.threads (default: 3) here.
 	fi
+
+		# Enable graceful leader migration
+	set_property $BROKER_CFG "controlled.shutdown.enable" "true"
 
 		# For tracking activity in the cloud.
 	set_property $BROKER_CFG "confluent.support.customer.id" "Azure_BYOL"
@@ -362,6 +373,13 @@ configure_workers() {
 		set_property $LEGACY_CONSUMER_CFG "group.id" "${CLUSTERNAME}-consumer-group"
 		set_property $LEGACY_CONSUMER_CFG "zookeeper.connect" "$zconnect"
 		set_property $LEGACY_CONSUMER_CFG "zookeeper.connection.timeout.ms" 30000
+		set_property $LEGACY_CONSUMER_CFG "interceptor.classes" "io.confluent.monitoring.clients.interceptor.MonitoringConsumerInterceptor" 
+	fi
+
+	if [ -f $LEGACY_PRODUCER_CFG ] ; then
+		set_property $LEGACY_PRODUCER_CFG "bootstrap.servers" "${bconnect}"
+		set_property $LEGACY_PRODUCER_CFG "request.timeout.ms" "100"
+		set_property $LEGACY_PRODUCER_CFG "interceptor.classes" "io.confluent.monitoring.clients.interceptor.MonitoringProducerInterceptor" 
 	fi
 
 		# We'll default to the Avro converters since we know
@@ -484,7 +502,17 @@ resolve_zknodes() {
 
 # Kludgy function to make sure the cluster is formed before
 # proceeding with the remaining startup activities.
+#
+#	NOTE: We only need to wait for other brokers if THIS NODE
+#		is a broker or worker.
 wait_for_brokers() {
+	echo "$brokers" | grep -q -w "$THIS_HOST" 
+	if [ $? -ne 0 ] ; then
+		echo "$workers" | grep -q -w "$THIS_HOST" 
+		[ $? -ne 0 ] && return 0
+	fi
+
+
     BROKER_WAIT=${1:-300}
 
     SWAIT=$BROKER_WAIT
