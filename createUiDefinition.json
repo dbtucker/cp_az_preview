@@ -94,6 +94,11 @@
               ]
             },
             "osPlatform": "Linux",
+            "imageReference": {
+                "publisher": "confluentinc",
+                "offer": "confluentplatform",
+                "sku" : "300"
+            },
             "count": "[add(steps('ConfluentClusterConfig').brokerNodeCount,add(steps('ConfluentClusterConfig').zookeeperNodeCount,steps('ConfluentClusterConfig').workerNodeCount))]"
           },
           {
