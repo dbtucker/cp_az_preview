@@ -312,6 +312,7 @@ configure_rest_proxy() {
 	set_property $REST_PROXY_CFG "id" "kafka-rest-${CLUSTERNAME}" 0
 
 		# TBD : get much smarter about Schema Registry Port
+		# Should grab this from zookeeper if it's available
 	sru="${brokers%%,*}"
 	sru="http://${sru%:*}:8081"
 	set_property $REST_PROXY_CFG "schema.registry.url" "$sru" 0
@@ -342,7 +343,7 @@ configure_control_center() {
 	set_property $CONTROL_CENTER_CFG "confluent.monitoring.interceptor.topic.replication" $monitoring_topics_replicas
 
 		# Should be handled better ... the set of all workers.
-#	set_property $CONTROL_CENTER_CFG "confluent.controlcenter.connect.cluster" "localhost:9883" 0
+#	set_property $CONTROL_CENTER_CFG "confluent.controlcenter.connect.cluster" "localhost:8083" 0
 
 		# Put control center data on larger storage (if configured)
 	if [ -n "$DATA_DIRS" ] ; then
@@ -504,7 +505,8 @@ resolve_zknodes() {
 # proceeding with the remaining startup activities.
 #
 #	NOTE: We only need to wait for other brokers if THIS NODE
-#		is a broker or worker.
+#		is a broker or worker.  zookeeper-only nodes need not 
+#		waste time here
 wait_for_brokers() {
 	echo "$brokers" | grep -q -w "$THIS_HOST" 
 	if [ $? -ne 0 ] ; then
@@ -564,6 +566,7 @@ start_node_services() {
 		if [ -x $CP_HOME/initscripts/cp-zk-service ] ; then
 			ln -s  $CP_HOME/initscripts/cp-zk-service  /etc/init.d
 			chkconfig cp-zk-service on
+			[ $? -ne 0 ] && systemctl enable cp-zk-service
 
 #			$CP_HOME/initscripts/cp-zk-service start
 #			/etc/init.d/cp-zk-service start
@@ -578,6 +581,7 @@ start_node_services() {
 		if [ -x $CP_HOME/initscripts/cp-kafka-service ] ; then
 			ln -s  $CP_HOME/initscripts/cp-kafka-service  /etc/init.d
 			chkconfig cp-kafka-service on
+			[ $? -ne 0 ] && systemctl enable cp-kafka-service
 
 #			$CP_HOME/initscripts/cp-kafka-service start
 #			/etc/init.d/cp-kafka-service start
@@ -587,7 +591,7 @@ start_node_services() {
 		fi
 	fi
 
-		# DANGER, DANGER
+		# Very rudimentary function to wait for brokers to come on-line
 	wait_for_brokers
 
 		# Schema registy on first broker only
@@ -595,6 +599,7 @@ start_node_services() {
 		if [ -x $CP_HOME/initscripts/cp-schema-service ] ; then
 			ln -s  $CP_HOME/initscripts/cp-schema-service  /etc/init.d
 			chkconfig cp-schema-service on
+			[ $? -ne 0 ] && systemctl enable cp-schema-service
 
 #			$CP_HOME/initscripts/cp-schema-service start
 #			/etc/init.d/cp-schema-service start
@@ -609,6 +614,7 @@ start_node_services() {
 		if [ -x $CP_HOME/initscripts/cp-rest-service ] ; then
 			ln -s  $CP_HOME/initscripts/cp-rest-service  /etc/init.d
 			chkconfig cp-rest-service on
+			[ $? -ne 0 ] && systemctl enable cp-rest-service
 
 #			$CP_HOME/initscripts/cp-rest-service start
 #			/etc/init.d/cp-rest-service start
@@ -620,7 +626,17 @@ start_node_services() {
 
 	echo "$workers" | grep -q -w "$THIS_HOST" 
 	if [ $? -eq 0 ] ; then
-		$BIN_DIR/connect-distributed -daemon $KAFKA_CONNECT_CFG
+		if [ -x $CP_HOME/initscripts/cp-connect-service ] ; then
+			ln -s  $CP_HOME/initscripts/cp-connect-service  /etc/init.d
+			chkconfig cp-connect-service on
+			[ $? -ne 0 ] && systemctl enable cp-connect-service
+
+#			$CP_HOME/initscripts/cp-connect-service start
+#			/etc/init.d/cp-connect-service start
+			service cp-connect-service start
+		else
+			$BIN_DIR/connect-distributed -daemon $KAFKA_CONNECT_CFG
+		fi
 	fi
 }
 
@@ -634,6 +650,7 @@ start_control_center() {
 		if [ -x $CP_HOME/initscripts/control-center-service ] ; then
 			ln -s  $CP_HOME/initscripts/control-center-service  /etc/init.d
 			chkconfig control-center-service on
+			[ $? -ne 0 ] && systemctl enable control-center-service
 
 #			$CP_HOME/initscripts/control-center-service start
 #			/etc/init.d/control-center-service start

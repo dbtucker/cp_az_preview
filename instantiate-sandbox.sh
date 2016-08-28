@@ -59,12 +59,12 @@ BINDIR=`dirname $THIS`
 KADMIN_USER=${KADMIN_USER:-kadmin}
 KADMIN_USER_DIR=`eval "echo ~${KADMIN_USER}"`
 KADMIN_USER_DIR=${KADMIN_USER_DIR:-/home/kadmin}
+AMI_SBIN=${KADMIN_USER_DIR}/sbin
 
 THIS_HOST=`hostname`
 
 patch_ami() {
-    AMI_SBIN=${KADMIN_USER_DIR}/sbin
-	if [ "$AMI_SBIN" != "$BINDIR" ] ; then
+	if [ -d "$AMI_SBIN"  -a  "$AMI_SBIN"!= "$BINDIR" ] ; then
     	for f in $(cd ${AMI_SBIN}; ls) ; do
         	[ ! -f $BINDIR/$f ] && continue
 
@@ -82,7 +82,10 @@ patch_ami
 cat << cpparmEOF > /tmp/cp.parm
 zknodes=$THIS_HOST
 brokers=$THIS_HOST
+workers=$THIS_HOST
 cpparmEOF
+
+[ ! -d ${AMI_SBIN} ] && AMI_SBIN=$BINDIR
 
 chmod a+x $AMI_SBIN/prepare-node.sh
 $AMI_SBIN/prepare-node.sh

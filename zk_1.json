@@ -104,7 +104,7 @@
                     "value": "[variables('zookeeperBasename')]"
                 },
                 "publicIPAddressBasename" : {
-       	            "value": "[concat(parameters('clusterName'),'-',substring(uniquestring(resourceGroup().id),0,4),'-zk-')]"
+                    "value": "[concat(parameters('clusterName'),'-',substring(uniquestring(subscription().subscriptionId,resourceGroup().id,deployment().name),0,8),'-zk-')]"
                 },
                 "publicIPAddressType": {
                     "value": "[variables('publicIPAddressType')]"

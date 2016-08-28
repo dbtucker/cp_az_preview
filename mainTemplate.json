@@ -58,7 +58,7 @@
         "imageSKU": {
             "defaultValue": "300",
             "type": "string",
-            "allowedValues": ["7.1", "14.04.4-LTS", "300"]
+            "allowedValues": ["7.1", "7.2", "14.04.4-LTS", "16.04.0-LTS", "300"]
         },
         "imageVersion": {
             "defaultValue": "latest",
@@ -157,7 +157,7 @@
     },
     "variables": {
         "scriptsUri" : "[concat(parameters('artifactsBaseUrl'),'/')]",
-        "storageAccountBasename": "[concat(trim(substring(concat(parameters('clusterName'),'        '),0,8)),substring(uniquestring(resourceGroup().id),0,4))]",
+        "storageAccountBasename": "[concat(trim(substring(concat(parameters('clusterName'),'        '),0,8)),substring(uniquestring(subscription().subscriptionId,resourceGroup().id,deployment().name),0,8))]",
 
         "brokerBasename": "[concat(parameters('clusterName'),'-broker-')]",
         "zookeeperBasename": "[concat(parameters('clusterName'),'-zk-')]",
@@ -300,7 +300,7 @@
                     "value": "[variables('brokerBasename')]"
                 },
                 "publicIPAddressBasename" : {
-       	            "value": "[concat(parameters('clusterName'),'-',substring(uniquestring(resourceGroup().id),0,4),'-broker-')]"
+                       "value": "[concat(parameters('clusterName'),'-',substring(uniquestring(subscription().subscriptionId,resourceGroup().id,deployment().name),0,8),'-broker-')]"
                 },
                 "publicIPAddressType": {
                     "value": "[variables('publicIPAddressType')]"
@@ -457,7 +457,7 @@
                     "value": "[variables('workerBasename')]"
                 },
                 "publicIPAddressBasename" : {
-       	            "value": "[concat(parameters('clusterName'),'-',substring(uniquestring(resourceGroup().id),0,4),'-worker-')]"
+                       "value": "[concat(parameters('clusterName'),'-',substring(uniquestring(subscription().subscriptionId,resourceGroup().id,deployment().name),0,8),'-worker-')]"
                 },
                 "publicIPAddressType": {
                     "value": "[variables('publicIPAddressType')]"

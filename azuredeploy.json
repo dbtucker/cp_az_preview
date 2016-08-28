@@ -2,13 +2,13 @@
     "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters" : {
-		"artifactsBaseUrl": {
-			"defaultValue" : "https://raw.githubusercontent.com/confluentinc/public-azure/master",
-			"type": "string",
-			"metadata": {
-				"artifactsBaseUrl": "Base URL of the Publisher Template gallery package"
-			}
-		},
+        "artifactsBaseUrl": {
+            "defaultValue" : "https://raw.githubusercontent.com/confluentinc/public-azure/master",
+            "type": "string",
+            "metadata": {
+                "artifactsBaseUrl": "Base URL of the Publisher Template gallery package"
+            }
+        },
         "clusterName": {
             "defaultValue": "confaz",
             "type": "string",
@@ -156,8 +156,8 @@
             "allowedValues": ["Standard_D2_V2", "Standard_D3_V2", "Standard_D4_V2", "Standard_D11_V2", "Standard_D12_V2", "Standard_D13_V2", 
                 "Standard_DS2_V2", "Standard_DS3_V2", "Standard_DS4_V2", "Standard_DS11_V2", "Standard_DS12_V2", "Standard_DS13_V2", 
                 "Standard_D2", "Standard_D3", "Standard_D4", "Standard_D11", "Standard_D12", "Standard_D13", 
-				"Standard_DS2", "Standard_DS3", "Standard_DS4", "Standard_DS11", "Standard_DS12", "Standard_DS13",
-				"Standard_F4", "Standard_F8", "Standard_FS4", "Standard_FS8" ],
+                "Standard_DS2", "Standard_DS3", "Standard_DS4", "Standard_DS11", "Standard_DS12", "Standard_DS13",
+                "Standard_F4", "Standard_F8", "Standard_FS4", "Standard_FS8" ],
             "metadata": {
                 "description": "InstanceType to use for this deployment"
             }
@@ -165,7 +165,7 @@
     },
     "variables": {
         "scriptsUri" : "[concat(parameters('artifactsBaseUrl'),'/')]",
-        "storageAccountBasename": "[concat(trim(substring(concat(parameters('clusterName'),'        '),0,8)),substring(uniquestring(resourceGroup().id),0,4))]",
+        "storageAccountBasename": "[concat(trim(substring(concat(parameters('clusterName'),'        '),0,8)),substring(uniquestring(subscription().subscriptionId,resourceGroup().id,deployment().name),0,8))]",
 
         "brokerBasename": "[concat(parameters('clusterName'),'-broker-')]",
         "zookeeperBasename": "[concat(parameters('clusterName'),'-zk-')]",
@@ -308,7 +308,7 @@
                     "value": "[variables('brokerBasename')]"
                 },
                 "publicIPAddressBasename" : {
-       	            "value": "[concat(parameters('clusterName'),'-',substring(uniquestring(resourceGroup().id),0,4),'-broker-')]"
+                       "value": "[concat(parameters('clusterName'),'-',substring(uniquestring(subscription().subscriptionId,resourceGroup().id,deployment().name),0,8),'-broker-')]"
                 },
                 "publicIPAddressType": {
                     "value": "[variables('publicIPAddressType')]"
@@ -465,7 +465,7 @@
                     "value": "[variables('workerBasename')]"
                 },
                 "publicIPAddressBasename" : {
-       	            "value": "[concat(parameters('clusterName'),'-',substring(uniquestring(resourceGroup().id),0,4),'-worker-')]"
+                       "value": "[concat(parameters('clusterName'),'-',substring(uniquestring(subscription().subscriptionId,resourceGroup().id,deployment().name),0,8),'-worker-')]"
                 },
                 "publicIPAddressType": {
                     "value": "[variables('publicIPAddressType')]"
