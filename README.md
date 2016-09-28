@@ -28,3 +28,12 @@ unless the system admin account was configured for password authentication
 Users can log on to the hosts and change the password
 of the kadmin user after deployment should they desire.
 
+<h1>
+DEPLOYMENT NOTES
+</h1>
+
+When using the one-click Deploy-to-Azure option above, be sure to specify ALL 
+of the relevant template parameters.   This basic deployment model is very
+different from the Marketplace model, so several default values (notably the
+target resource group for a newly created virtual network) cannot be set
+propery for display in the web interface.
