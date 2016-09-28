@@ -79,6 +79,7 @@ init_sys_services () {
 
 install_os_tools() {
 	if which apt-get &> /dev/null ; then
+		apt-get install -y ntp ntpdate
 		apt-get install -y wget realpath
 		apt-get install -y lsof nc
 		apt-get install -y clustershell jq
@@ -213,6 +214,7 @@ update_admin_keys() {
 	fi
 
 	[ -f $INFRA_SSH_KEY_FILE ] && \
+		chown $KADMIN_USER:$KADMIN_GROUP $INFRA_SSH_KEY_FILE && \
 		cat $INFRA_SSH_KEY_FILE >> $KADMIN_USER_DIR/.ssh/authorized_keys
 }
 
@@ -278,7 +280,7 @@ CP_HOME=/opt/confluent
 # CP_TARBALL_URI=http://packages.confluent.io/archive/$CP_VERSION/$CP_TARBALL
 
 CP_VERSION=3.0
-CP_TARBALL=confluent-3.0.0-2.11.tar.gz
+CP_TARBALL=confluent-3.0.1-2.11.tar.gz
 CP_TARBALL_URI=http://packages.confluent.io/archive/$CP_VERSION/$CP_TARBALL
 
 install_confluent_platform() {

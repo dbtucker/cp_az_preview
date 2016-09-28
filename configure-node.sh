@@ -102,14 +102,21 @@ patch_confluent_service_scripts() {
 	fi
 
 	if [ -f $BIN_DIR/control-center-run-class ] ; then 
-		grep -q "ccrc_daemon.out" $BIN_DIR/control-center-run-class
-		[ $? -ne 0 ] && sed -i "s|< /dev/null|< /dev/null > \${base_dir}/logs/ccrc_daemon.out|" $BIN_DIR/control-center-run-class
+		grep -q "DAEMON_STDOUT_FILE=" $BIN_DIR/control-center-run-class
+		if [ $? -eq 0 ] ; then
+			sed -i "s|DAEMON_STDOUT_FILE=.*$|DAEMON_STDOUT_FILE=\${base_dir}/logs/control-center.out|" $BIN_DIR/control-center-run-class
+		else 
+			grep -q "ccrc_daemon.out" $BIN_DIR/control-center-run-class
+			[ $? -ne 0 ] && sed -i "s|< /dev/null|< /dev/null > \${base_dir}/logs/ccrc_daemon.out|" $BIN_DIR/control-center-run-class
+		fi
 	fi
 
-		# Handle daemon option in connect-distributed
+		# Handle daemon option in connect-distributed (which requires bash)
 	if [ -f $BIN_DIR/connect-distributed ] ; then 
-		grep -q "DAEMON_ARG" $BIN_DIR/connect-distributed
-		if [ $? -ne 0 ] ; then
+		grep -e 'run-class org.apache.kafka.connect.cli.ConnectDistributed ' $BIN_DIR/connect-distributed
+		if [ $? -eq 0 ] ; then
+			sed -i 's|^#!/bin/sh|#!/bin/bash|' $BIN_DIR/connect-distributed
+
 			sed -i '/^export CLASSPATH$/a [ \$1 == "-daemon" ] && DAEMON_ARG=-daemon && shift ' $BIN_DIR/connect-distributed
 			sed -i 's|kafka-run-class|kafka-run-class ${DAEMON_ARG:-}|' $BIN_DIR/connect-distributed
 		fi
@@ -323,6 +330,17 @@ configure_control_center() {
 	[ ! -f $CONTROL_CENTER_CFG ] && return 1
 
 	local numBrokers=`echo ${brokers//,/ } | wc -w`
+
+		# The Control Center data dir should be isolated
+		# when brokers are deployed alongside the CC service
+	echo "$brokers" | grep -q -w "$THIS_HOST" 
+	if [ $? -eq 0 ] ; then
+		if [ -z "$CC_DATA_DIR" ] ; then
+			CC_DATA_DIR=/var/lib/confluent/control-center
+			mkdir -p $CC_DATA_DIR
+			chown --reference=$CP_HOME/etc $CC_DATA_DIR
+		fi
+	fi
 
 	cc_topics_replicas=3
 	[ $cc_topics_replicas -gt $numBrokers ] && cc_topics_replicas=$numBrokers

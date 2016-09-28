@@ -49,7 +49,8 @@ find_data_disks() {
         dev=${d%:}
 
         [ $dev != ${dev#/dev/mapper/} ] && continue     # skip udev devices
-        [ $dev != ${dev#/dev/md/} ] && continue     # skip software raid  devices
+        [ $dev != ${dev#/dev/ram} ] && continue     # skip ramdisks devices
+        [ $dev != ${dev#/dev/md} ] && continue     # skip software raid  devices
 
         mount | grep -q -w -e $dev -e ${dev}1 -e ${dev}2
         [ $? -eq 0 ] && continue
