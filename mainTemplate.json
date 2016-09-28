@@ -40,7 +40,7 @@
         "confluentVersion": {
             "defaultValue": "3.0.0",
             "type": "string",
-            "allowedValues": ["3.0.0"],
+            "allowedValues": ["3.0.0", "3.0.1"],
             "metadata": {
                  "description": "Confluent Platform Version"
             }
