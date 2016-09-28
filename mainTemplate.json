@@ -58,7 +58,7 @@
         "imageSKU": {
             "defaultValue": "300",
             "type": "string",
-            "allowedValues": ["7.1", "7.2", "14.04.4-LTS", "16.04.0-LTS", "300"]
+            "allowedValues": ["7.1", "7.2", "14.04.4-LTS", "16.04.0-LTS", "300", "301", "310"]
         },
         "imageVersion": {
             "defaultValue": "latest",
