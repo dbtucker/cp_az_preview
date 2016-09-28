@@ -116,7 +116,7 @@
         },
         "vnetName": {
             "type": "string",
-            "defaultValue" : "",
+            "defaultValue": "confaz-vnet",
             "metadata": {
                 "description": "Network resource to use for this deployment"
             }
