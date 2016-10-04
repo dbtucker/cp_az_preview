@@ -57,7 +57,7 @@
             "allowedValues": ["CentOS", "UbuntuServer", "confluentplatform", "confluentplatform-preview"]
         },
         "imageSKU": {
-            "defaultValue": "300",
+            "defaultValue": "[replace(parameters('confluentVersion'),'.','')]",
             "type": "string",
             "allowedValues": ["7.1", "7.2", "14.04.4-LTS", "16.04.0-LTS", "300", "301", "310"]
         },
