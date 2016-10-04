@@ -70,7 +70,7 @@
         }        
     },
     "variables": {
-        "storageAccountBasename": "[concat(parameters('storageAccountSeed'),parameters('groupClass'),'sa')]",
+        "storageAccountBasename": "[concat(parameters('storageAccountSeed'),substring(parameters('groupClass'),0,2),'sa')]",
         "storageAccountTypeStandard_A0": "Standard_LRS",
         "storageAccountTypeStandard_A1": "Standard_LRS",
         "storageAccountTypeStandard_A2": "Standard_LRS",
