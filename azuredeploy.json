@@ -39,7 +39,7 @@
             }
         },
         "confluentVersion": {
-            "defaultValue": "3.0.0",
+            "defaultValue": "3.0.1",
             "type": "string",
             "allowedValues": ["3.0.0", "3.0.1", "3.1.0"],
             "metadata": {
@@ -231,7 +231,7 @@
                     "value": "[parameters('numWorkers')]"
                 },
                 "confluentVersion" : {
-                    "value": "[parameters('confluentVersion"
+                    "value": "[parameters('confluentVersion')]"
                 },
                 "vmSize" : {
                     "value": "[parameters('vmSize')]"
@@ -427,7 +427,7 @@
                     "value": "[parameters('numWorkers')]"
                 },
                 "confluentVersion" : {
-                    "value": "[parameters('confluentVersion"
+                    "value": "[parameters('confluentVersion')]"
                 },
                 "scriptsUri" : {
                     "value": "[variables('scriptsUri')]"
@@ -585,7 +585,7 @@
                     "value": "[parameters('numWorkers')]"
                 },
                 "confluentVersion" : {
-                    "value": "[parameters('confluentVersion"
+                    "value": "[parameters('confluentVersion')]"
                 },
                 "scriptsUri" : {
                     "value": "[variables('scriptsUri')]"
