@@ -43,19 +43,17 @@ add_epel_repo() {
 
 	EPEL_RPM=/tmp/epel.rpm
 	CVER=`lsb_release -r | awk '{print $2}'`
-	if [ "${CVER%%.*}" -eq 5 ] ; then
-		EPEL_LOC="epel/5/x86_64/epel-release-5-4.noarch.rpm"
-	elif [ "${CVER%%.*}" -eq 7 ] ; then
-		EPEL_LOC="epel/7/x86_64/e/epel-release-7-7.noarch.rpm"
+	if [ "${CVER%%.*}" -eq 6 ] ; then
+		EPEL_LOC="epel/epel-release-latest-6.noarch.rpm"
 	else
-		EPEL_LOC="epel/6/x86_64/epel-release-6-8.noarch.rpm"
+		EPEL_LOC="epel/epel-release-latest-7.noarch.rpm"
 	fi
 
 	epel_def=/etc/yum.repos.d/epel.repo
 	if [ -f $epel_def ] ; then
 		yum-config-manager --enable epel
 	else
-		curl -f -L -o $EPEL_RPM http://download.fedoraproject.org/pub/$EPEL_LOC
+		curl -f -s -L -o $EPEL_RPM http://dl.fedoraproject.org/pub/$EPEL_LOC
 		[ $? -eq 0 ] && rpm --quiet -i $EPEL_RPM
 	fi
 }
@@ -64,6 +62,7 @@ init_sys_services () {
 		# Install ntp daemon - it will automatically start on boot
 		# (NOTE: run ntpdate first to be sure we're in sync)
 	if which apt-get &> /dev/null ; then
+		apt-get -y install ntpdate
 		ntpdate -u pool.ntp.org
 		apt-get -y install ntp
 	else
@@ -79,21 +78,32 @@ init_sys_services () {
 
 install_os_tools() {
 	if which apt-get &> /dev/null ; then
+		apt-get -y update
+
 		apt-get install -y ntp ntpdate
 		apt-get install -y wget realpath
-		apt-get install -y lsof nc
+		apt-get install -y lsof nc bind-utils
 		apt-get install -y clustershell jq
 		apt-get install -y mdadm
+
+		apt-get install -y python-pip
+		pip install --upgrade pip
 			
 			# Make sure we have XFS file system support
 		apt-get install -y xfsprogs
-	else
+	elif which yum &> /dev/null ; then
 		yum install -y wget realpath
 		yum install -y lsof nc
 		yum install -y clustershell jq
 		yum install -y mdadm
+
 		yum install -y python-pip
+		pip install --upgrade pip
 	fi
+
+		# Add the python pip "requests" package to all instances 
+	pip install --upgrade requests
+
 }
 
 install_openjdk_deb() {
@@ -138,7 +148,7 @@ install_oracle_jdk_rpm() {
     JDK_RPM="http://download.oracle.com/otn-pub/java/jdk/7u75-b13/jdk-7u75-linux-x64.rpm"
 #    JDK_RPM="http://download.oracle.com/otn-pub/java/jdk/8u91-b14/jdk-8u91-linux-x64.rpm"
 
-    $(cd /tmp; curl -f -L -C - -b "oraclelicense=accept-securebackup-cookie" -O $JDK_RPM)
+    $(cd /tmp; curl -f -s -L -C - -b "oraclelicense=accept-securebackup-cookie" -O $JDK_RPM)
 
     RPM_FILE=/tmp/`basename $JDK_RPM`
     if [ ! -s $RPM_FILE ] ; then
@@ -196,7 +206,7 @@ update_admin_keys() {
 	INFRA_SSH_KEY_FILE=$KADMIN_USER_DIR/.ssh/id_cloud.pub
 
 		# For AWS the key-pair is in metadata
-	curl -f ${murl_top}/public-keys/0/openssh-key > $INFRA_SSH_KEY_FILE
+	curl -f -s ${murl_top}/public-keys/0/openssh-key > $INFRA_SSH_KEY_FILE
 
 		# For Azure cloud platform, we can use the admin user keys
 	if [ $? -ne 0  ] ; then
@@ -275,12 +285,12 @@ EOF_bashrc
 #	TBD : get smarter about the version to install
 
 CP_HOME=/opt/confluent
-# CP_VERSION=2.0
-# CP_TARBALL=confluent-2.0.1-2.11.7.tar.gz
+# CP_VERSION=3.0
+# CP_TARBALL=confluent-3.0.1-2.11.tar.gz
 # CP_TARBALL_URI=http://packages.confluent.io/archive/$CP_VERSION/$CP_TARBALL
 
-CP_VERSION=3.0
-CP_TARBALL=confluent-3.0.1-2.11.tar.gz
+CP_VERSION=3.2
+CP_TARBALL=confluent-3.2.0-2.11.tar.gz
 CP_TARBALL_URI=http://packages.confluent.io/archive/$CP_VERSION/$CP_TARBALL
 
 install_confluent_platform() {
@@ -288,7 +298,7 @@ install_confluent_platform() {
 
     echo "Installing Confluent Platform"
 
-    curl -f -o /tmp/$CP_TARBALL $CP_TARBALL_URI
+    curl -f -L -o /tmp/$CP_TARBALL $CP_TARBALL_URI
 
     if [ ! -s /tmp/$CP_TARBALL ] ; then
         echo "  Downloading Confluent Platform tarball failed"
@@ -299,7 +309,7 @@ install_confluent_platform() {
     ln -s /opt/confluent-${CP_VERSION}* $CP_HOME
 	mkdir -p $CP_HOME/logs
 
-    chown -R $KADMIN_USER:$KADMIN_GROUP /opt/confluent-${CP_VERSION}* 
+    chown -R $KADMIN_USER:$KADMIN_GROUP /opt/confluent-${CP_VERSION}*
 }
 
 

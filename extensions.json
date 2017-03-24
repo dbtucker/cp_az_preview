@@ -51,9 +51,11 @@
             "settings": {
                 "fileUris": [
                     "[concat(parameters('scriptsUri'), 'gen-cluster-hosts.sh')]",
+                    "[concat(parameters('scriptsUri'), 'compute-heap-opts')]",
                     "[concat(parameters('scriptsUri'), 'prepare-disks.sh')]",
                     "[concat(parameters('scriptsUri'), 'prepare-node.sh')]",
                     "[concat(parameters('scriptsUri'), 'configure-node.sh')]",
+                    "[concat(parameters('scriptsUri'), 'cp-retrieve-connect-jars.sh')]",
                     "[concat(parameters('scriptsUri'), 'cp-deploy.sh')]"
                 ]
             },

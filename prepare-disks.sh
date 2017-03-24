@@ -37,7 +37,7 @@ DATA_TOP=
 # DATA_TOP=/opt/confluent
 
 # Confluent Installation Home (used for ownership details)
-CP_HOME=/opt/confluent
+CP_HOME=${CP_HOME:-/opt/confluent}
 unset DATA_DIRS
 
 #
@@ -143,7 +143,7 @@ mount_data_disks() {
 
 	didx=0
 	for dev in $DATA_DISKS ; do
-		didx=$[didx+1]			# increment first so "continue" logic works
+		didx=$((didx+1))	# increment first so "continue" logic works
 
 		mkdir $DATA_TOP/data${didx}
 		[ $? -ne 0 ] && continue			# need better error handling here
@@ -193,6 +193,7 @@ main() {
 		fi
 	fi
 
+	echo "DATA_DIRS=$DATA_DIRS" >> $LOG
 	echo "${SCRIPT_NAME} ($0) script finished at "`date` >> $LOG
 
 	return 0

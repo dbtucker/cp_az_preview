@@ -9,16 +9,16 @@
 PREVIEW RELEASE
 </h1>
 
-This advanced template deploys multiple copies of the Confluent Platform VM
+This advanced template deploys multiple copies of the Confluent VM
 Image for use in simple experimentation of a complete Kafka environment.
-Users can select which instance types to use; storage for each node is
-currently defined in the template itself: 4 1-TB volumes for each broker node.
+Users can select the number and type of instances to use.  Storage for each 
+node is currently defined in the template itself: 4 1-TB volumes for each broker node.
 
 The Control Center interface to the cluster will be available at  
 
     http://[worker-1]:9021
 
-The system admin account will have login access, as well as the 
+The system admin account will have login access, as will the 
 Confluent Software Admin account (user "kadmin").   The password for 
 the kadmin user is set along with the other deployment parameters,
 but password-authentication to that account will be disabled 

@@ -38,9 +38,9 @@
             }
         },
         "confluentVersion": {
-            "defaultValue": "3.0.1",
+            "defaultValue": "3.2.0",
             "type": "string",
-            "allowedValues": ["3.0.0", "3.0.1", "3.1.0"],
+            "allowedValues": ["3.1.1", "3.2.0" ],
             "metadata": {
                  "description": "Confluent Platform Version"
             }
@@ -58,7 +58,7 @@
         "imageSKU": {
             "defaultValue": "[replace(parameters('confluentVersion'),'.','')]",
             "type": "string",
-            "allowedValues": ["7.1", "7.2", "14.04.4-LTS", "16.04.0-LTS", "300", "301", "310"]
+            "allowedValues": ["7.1", "7.2", "16.04.0-LTS", "311", "320" ]
         },
         "imageVersion": {
             "defaultValue": "latest",

@@ -32,7 +32,8 @@
 #	CP_PARM file (defaults to /tmp/cp.parm), containing
 #		zknodes: list of Zookeeper hostnames
 #		brokers: list of nodes to run Kafka brokers
-#			NOTE: will be constructed based on /tmp/cfhosts if necessary
+#		workers: list of nodes to run Kafka brokers
+#			NOTE: will be constructed based on /tmp/cphosts if necessary
 #
 # Output
 #	Services configured and running
@@ -56,9 +57,9 @@ LOG=/tmp/configure-node.log
 # Extract useful details from the AWS MetaData
 # The information there should be treated as the source of truth,
 # even if the internal settings are temporarily incorrect.
-murl_top=http://169.254.169.254/latest/meta-data
+murl_top=http://instance-data/latest/meta-data
 
-THIS_FQDN=$(curl -f $murl_top/hostname)
+THIS_FQDN=$(curl -f -s $murl_top/hostname)
 [ -z "${THIS_FQDN}" ] && THIS_FQDN=`hostname --fqdn`
 THIS_HOST=${THIS_FQDN%%.*}
 CLUSTERNAME="${THIS_HOST%%-*}"
@@ -66,73 +67,8 @@ CLUSTERNAME="${THIS_HOST%%-*}"
 CP_HOSTS_FILE=/tmp/cphosts    # Helper file
 
 # Our configuration files (default locations {tarball installation})
-CP_HOME=/opt/confluent
-ZK_CFG=$CP_HOME/etc/kafka/zookeeper.properties
-BROKER_CFG=$CP_HOME/etc/kafka/server.properties
-REST_PROXY_CFG=${CP_HOME}/etc/kafka-rest/kafka-rest.properties
-SCHEMA_REG_CFG=$CP_HOME/etc/schema-registry/schema-registry.properties
-KAFKA_CONNECT_CFG=$CP_HOME/etc/kafka/connect-distributed.properties
-LEGACY_CONSUMER_CFG=$CP_HOME/etc/kafka/consumer.properties
-LEGACY_PRODUCER_CFG=$CP_HOME/etc/kafka/producer.properties
-CONTROL_CENTER_CFG=$CP_HOME/etc/confluent-control-center/control-center.properties
+CP_HOME=${CP_HOME:-/opt/confluent}
 
-CONF_SCHEMA_CLASS='io.confluent.kafka.schemaregistry.rest.SchemaRegistryMain'
-CONF_REST_CLASS='io.confluent.kafkarest.KafkaRestMain'
-
-
-# Several startup scripts (at least as of 3.0.0) are pretty crippled.
-# Need to make sure they correctly support output files during nohup launches
-#	(and the control center startup script doesn't even support the daemon mode)
-patch_confluent_service_scripts() {
-	BIN_DIR=$CP_HOME/bin
-
-	if [ -f $BIN_DIR/kafka-run-class ] ; then 
-		grep -q '${CONSOLE_OUTPUT_FILE:-${LOG_DIR}/krc_daemon.out}' $BIN_DIR/kafka-run-class
-		[ $? -ne 0 ] && sed -i '/DAEMON_MODE="true"/a CONSOLE_OUTPUT_FILE=${CONSOLE_OUTPUT_FILE:-${LOG_DIR}/krc_daemon.out}' $BIN_DIR/kafka-run-class
-	fi
-
-	if [ -f $BIN_DIR/schema-registry-run-class ] ; then 
-		grep -q "srrc_daemon.out" $BIN_DIR/schema-registry-run-class
-		[ $? -ne 0 ] && sed -i "s|< /dev/null|< /dev/null > \${base_dir}/logs/srrc_daemon.out|" $BIN_DIR/schema-registry-run-class
-	fi
-
-	if [ -f $BIN_DIR/kafka-rest-run-class ] ; then 
-		grep -q "krrc_daemon.out" $BIN_DIR/kafka-rest-run-class
-		[ $? -ne 0 ] && sed -i "s|< /dev/null|< /dev/null > \${base_dir}/logs/krrc_daemon.out|" $BIN_DIR/kafka-rest-run-class
-	fi
-
-	if [ -f $BIN_DIR/control-center-run-class ] ; then 
-		grep -q "DAEMON_STDOUT_FILE=" $BIN_DIR/control-center-run-class
-		if [ $? -eq 0 ] ; then
-			sed -i "s|DAEMON_STDOUT_FILE=.*$|DAEMON_STDOUT_FILE=\${base_dir}/logs/control-center.out|" $BIN_DIR/control-center-run-class
-		else 
-			grep -q "ccrc_daemon.out" $BIN_DIR/control-center-run-class
-			[ $? -ne 0 ] && sed -i "s|< /dev/null|< /dev/null > \${base_dir}/logs/ccrc_daemon.out|" $BIN_DIR/control-center-run-class
-		fi
-	fi
-
-		# Handle daemon option in connect-distributed (which requires bash)
-	if [ -f $BIN_DIR/connect-distributed ] ; then 
-		grep -e 'run-class org.apache.kafka.connect.cli.ConnectDistributed ' $BIN_DIR/connect-distributed
-		if [ $? -eq 0 ] ; then
-			sed -i 's|^#!/bin/sh|#!/bin/bash|' $BIN_DIR/connect-distributed
-
-			sed -i '/^export CLASSPATH$/a [ \$1 == "-daemon" ] && DAEMON_ARG=-daemon && shift ' $BIN_DIR/connect-distributed
-			sed -i 's|kafka-run-class|kafka-run-class ${DAEMON_ARG:-}|' $BIN_DIR/connect-distributed
-		fi
-	fi
-
-		# Add daemon option to control-center-start
-		#	Kludge for initial confluent platform release
-		#	NOTE: the "-daemon" arg is handeld differently for the control-center-run-class script !!!
-	if [ -x $BIN_DIR/control-center-start ] ; then 
-		grep -e 'run-class io.confluent.controlcenter.ControlCenter \"\$props_file\"' $BIN_DIR/control-center-start
-		if [ $? -eq 0 ] ; then
-			sed -i '/^props_file=/a [ $props_file == "-daemon" ] && DAEMON_ARG=-daemon && props_file=${2}' $BIN_DIR/control-center-start
-			sed -i 's|run-class io.confluent.controlcenter.ControlCenter|run-class io.confluent.controlcenter.ControlCenter ${DAEMON_ARG:-}|' $BIN_DIR/control-center-start
-		fi
-	fi
-}
 
 # For now, make sure initscripts directory and service scripts
 # are owned by root
@@ -159,6 +95,36 @@ patch_confluent_initscripts() {
 #			chown --reference=${INITSCRIPTS_DIR} $INITSCRIPTS_DIR/${s}
 		fi
 	done
+}
+
+# Locate the configuration files (since we use them all the time)
+# Should be called ONLY after the software has been installed.
+locate_cfg() {
+	CP_TOP=${CP_HOME}
+	[ ! -d $CP_HOME ] && CP_TOP=""
+
+	ZK_CFG=${CP_TOP}/etc/kafka/zookeeper.properties
+	BROKER_CFG=${CP_TOP}/etc/kafka/server.properties
+	REST_PROXY_CFG=${CP_TOP}/etc/kafka-rest/kafka-rest.properties
+	SCHEMA_REG_CFG=${CP_TOP}/etc/schema-registry/schema-registry.properties
+	KAFKA_CONNECT_CFG=${CP_TOP}/etc/kafka/connect-distributed.properties
+	LEGACY_CONSUMER_CFG=${CP_TOP}/etc/kafka/consumer.properties
+	LEGACY_PRODUCER_CFG=${CP_TOP}/etc/kafka/producer.properties
+	CONTROL_CENTER_CFG=${CP_TOP}/etc/confluent-control-center/control-center.properties
+}
+
+# Locate the start scripts for any changes.
+# Should be called ONLY after the software has been installed.
+locate_start_scripts() {
+	BIN_DIR=${CP_HOME}/bin
+	[ ! -d $CP_HOME ] && BIN_DIR="/usr/bin"
+
+	ZK_SCRIPT=${BIN_DIR}/zookeeper-server-start
+	BROKER_SCRIPT=${BIN_DIR}/kafka-server-start
+	REST_PROXY_SCRIPT=${BIN_DIR}/kafka-rest-start
+	SCHEMA_REG_SCRIPT=${BIN_DIR}/schema-registry-start
+	KAFKA_CONNECT_SCRIPT=${BIN_DIR}/connect-distributed
+	CONTROL_CENTER_SCRIPT=${BIN_DIR}/control-center-start
 }
 
 # Archive the configuration file sto a known location
@@ -247,41 +213,47 @@ configure_confluent_zk() {
 	[ $? -ne 0 ] && return 0
 
 		# Simple deployment : ZK data in $CP_HOME/zkdata
-	mkdir -p $CP_HOME/zkdata
-	chown --reference=$CP_HOME/etc $CP_HOME/zkdata
+	CP_TOP=${CP_HOME}
+	[ ! -d $CP_HOME ] && CP_TOP=""
 
-	set_property $ZK_CFG "dataDir" "$CP_HOME/zkdata"
+	mkdir -p $CP_TOP/zkdata
+	chown --reference=$CP_TOP/etc $CP_TOP/zkdata
+
+	set_property $ZK_CFG "dataDir" "$CP_TOP/zkdata"
 
 	if [ $myid -gt 0 ] ; then
-		echo $myid > $CP_HOME/zkdata/myid
-		chown --reference=$CP_HOME/etc $CP_HOME/zkdata/myid
+		echo $myid > $CP_TOP/zkdata/myid
+		chown --reference=$CP_TOP/etc $CP_TOP/zkdata/myid
 	fi
 }
 
 configure_kafka_broker() {
 	[ ! -f $BROKER_CFG ] && return 1
 
+	local numBrokers=`echo ${brokers//,/ } | wc -w`
+
 	local ncpu=$(grep ^processor /proc/cpuinfo | wc -l)
 	ncpu=${ncpu:-2}
 
-	myid=0
-	bidx=1
+	myid=-1
+	bidx=0
 	for bnode in ${brokers//,/ } ; do
 		[ $bnode = $THIS_HOST ] && myid=$bidx
 		bidx=$[bidx+1]
 	done
 
-#		No need to set broker.id so long as auto-generation is
-#		enabled (which it is by default)
-#	if [ $myid -gt 0 ] ; then
-#		sed -i "s/^broker\.id=.*$/broker\.id=$myid/" $BROKER_CFG
-#	fi
-#
-#		Instead, comment out explicit setting and force auto-generation
-	sed -i "s/^broker\.id=/# broker\.id=$myid/" $BROKER_CFG
-	sed -i "s/^broker\.id\.generation\.enabled=false/broker\.id\.generation\.enabled=true/" $BROKER_CFG
+		# Choose between explicit setting of broker.id or auto-generation
+		# As of 3.1.2, ConfluentMetricsReporter class did not properly
+		# report broker metrics when auto-generation was enabled.
 
-		# Set target zookeeper quorum and VERY LONG timeout
+	if [ $myid -ge 0 ] ; then
+		set_property $BROKER_CFG "broker.id" "$myid"
+	else
+		sed -i "s/^broker\.id=.*$/# broker\.id=$myid/" $BROKER_CFG
+		sed -i "s/^broker\.id\.generation\.enabled=false/broker\.id\.generation\.enabled=true/" $BROKER_CFG
+	fi
+
+		# Set target zookeeper quorum and VERY LONG timeout (5 minutes)
 		# (since we don't know how long before other nodes will come on line)
 	set_property $BROKER_CFG "zookeeper.connect" "$zconnect"
 	set_property $BROKER_CFG "zookeeper.connection.timeout.ms" 300000
@@ -298,11 +270,26 @@ configure_kafka_broker() {
 			# num.network.threads (default: 3) here.
 	fi
 
+		# Topic management settings
+	set_property $BROKER_CFG "auto.create.topics.enable" "false"
+	set_property $BROKER_CFG "delete.topics.enable" "true"
+
 		# Enable graceful leader migration
 	set_property $BROKER_CFG "controlled.shutdown.enable" "true"
 
 		# For tracking activity in the cloud.
 	set_property $BROKER_CFG "confluent.support.customer.id" "Azure_BYOL"
+
+		# Enable replicator settings if the rebalancer is present
+	if [ -x $CP_HOME/bin/confluent-rebalancer ] ; then
+		mr_topic_replicas=3
+		[ $mr_topic_replicas -gt $numBrokers ] && mr_topic_replicas=$numBrokers
+
+		set_property $BROKER_CFG "metric.reporters" "io.confluent.metrics.reporter.ConfluentMetricsReporter"
+		set_property $BROKER_CFG "confluent.metrics.reporter.topic.replicas" "$mr_topic_replicas" 
+		set_property $BROKER_CFG "confluent.metrics.reporter.bootstrap.servers" "$bconnect"
+		set_property $BROKER_CFG "confluent.metrics.reporter.zookeeper.connect" "$zconnect" 
+	fi
 }
 
 configure_schema_registry() {
@@ -320,19 +307,23 @@ configure_rest_proxy() {
 
 		# TBD : get much smarter about Schema Registry Port
 		# Should grab this from zookeeper if it's available
-	sru="${brokers%%,*}"
-	sru="http://${sru%:*}:8081"
-	set_property $REST_PROXY_CFG "schema.registry.url" "$sru" 0
+	set_property $REST_PROXY_CFG "schema.registry.url" "http://$srconnect" 0
 	set_property $REST_PROXY_CFG "zookeeper.connect" "$zconnect" 0
 }
 
 configure_control_center() {
 	[ ! -f $CONTROL_CENTER_CFG ] && return 1
 
-	local numBrokers=`echo ${brokers//,/ } | wc -w`
+	local ncpu=$(grep ^processor /proc/cpuinfo | wc -l)
+	ncpu=${ncpu:-2}
 
-		# The Control Center data dir should be isolated
-		# when brokers are deployed alongside the CC service
+	local numBrokers=`echo ${brokers//,/ } | wc -w`
+	local numWorkers=`echo ${workers//,/ } | wc -w`
+
+		# When Control Center is hosted alongside brokers, 
+		# its data dir should be isolated.
+		# In other cases, allow a few more threads if we won't compete with 
+		# other services (Control Center deserves a bigger percentage of worker-0)
 	echo "$brokers" | grep -q -w "$THIS_HOST" 
 	if [ $? -eq 0 ] ; then
 		if [ -z "$CC_DATA_DIR" ] ; then
@@ -340,7 +331,12 @@ configure_control_center() {
 			mkdir -p $CC_DATA_DIR
 			chown --reference=$CP_HOME/etc $CC_DATA_DIR
 		fi
+	elif [ $numWorkers -gt 1  -a  $ncpu -gt 8 ] ; then
+		set_property $CONTROL_CENTER_CFG "confluent.controlcenter.streams.num.stream.threads" "$ncpu" 
 	fi
+
+		# REST properties for service
+	set_property $CONTROL_CENTER_CFG "confluent.controlcenter.rest.compression.enable" "true" 
 
 	cc_topics_replicas=3
 	[ $cc_topics_replicas -gt $numBrokers ] && cc_topics_replicas=$numBrokers
@@ -357,11 +353,12 @@ configure_control_center() {
 
 	set_property $CONTROL_CENTER_CFG "confluent.controlcenter.internal.topics.partitions" $cc_partitions
 	set_property $CONTROL_CENTER_CFG "confluent.controlcenter.internal.topics.replication" $cc_topics_replicas
+	set_property $CONTROL_CENTER_CFG "confluent.controlcenter.command.topic.partitions" $cc_partitions
+	set_property $CONTROL_CENTER_CFG "confluent.controlcenter.command.topic.replication" $cc_topics_replicas
 	set_property $CONTROL_CENTER_CFG "confluent.monitoring.interceptor.topic.partitions" $cc_partitions
 	set_property $CONTROL_CENTER_CFG "confluent.monitoring.interceptor.topic.replication" $monitoring_topics_replicas
 
-		# Should be handled better ... the set of all workers.
-#	set_property $CONTROL_CENTER_CFG "confluent.controlcenter.connect.cluster" "localhost:8083" 0
+	set_property $CONTROL_CENTER_CFG "confluent.controlcenter.connect.cluster" "$wconnect" 0
 
 		# Put control center data on larger storage (if configured)
 	if [ -n "$DATA_DIRS" ] ; then
@@ -410,8 +407,10 @@ configure_workers() {
 
 		set_property $KAFKA_CONNECT_CFG  "key.converter" "io.confluent.connect.avro.AvroConverter"
 		set_property $KAFKA_CONNECT_CFG  "key.converter.schema.registry.url" "http://${srconnect}"
+		set_property $KAFKA_CONNECT_CFG  "key.converter.schemas.enable" "true"
 		set_property $KAFKA_CONNECT_CFG  "value.converter" "io.confluent.connect.avro.AvroConverter"
 		set_property $KAFKA_CONNECT_CFG  "value.converter.schema.registry.url" "http://${srconnect}"
+		set_property $KAFKA_CONNECT_CFG  "value.converter.schemas.enable" "true"
 
 		set_property $KAFKA_CONNECT_CFG  "consumer.interceptor.classes" "io.confluent.monitoring.clients.interceptor.MonitoringConsumerInterceptor" 
 		set_property $KAFKA_CONNECT_CFG  "producer.interceptor.classes" "io.confluent.monitoring.clients.interceptor.MonitoringProducerInterceptor" 
@@ -468,8 +467,14 @@ configure_confluent_node() {
 		fi
 	done
 
-		# Schema Registry runs on the first broker
-	srconnect=${brokers%%,*}:8081
+		# Schema Registry runs on the second worker
+	numWorkers=$(echo "${workers//,/ }" | wc -w)
+	if [ $numWorkers -le 1 ] ; then
+		srconnect=${workers%%,*}:8081
+	else
+		srconnect=$(echo $workers | cut -d, -f2)
+		srconnect=${srconnect}:8081
+	fi
 
 	if [ -f $KAFKA_CONNECT_CFG ] ; then 
 		connectRestPort=$(grep -e ^rest.port= $KAFKA_CONNECT_CFG | cut -d'=' -f2)
@@ -485,6 +490,7 @@ configure_confluent_node() {
 		fi
 	done
 
+		# Save off the configuration details before making our changes.
 	archive_cfg
 
 	configure_confluent_zk
@@ -494,6 +500,94 @@ configure_confluent_node() {
 
 	configure_workers 
 	[ -n "$workers" ] && configure_control_center
+}
+
+# Sets memory allocation in start scripts
+#	Assumes that the "locate_start_scripts" has been run
+#
+update_service_heap_opts() {
+	if [ ! -x $SCRIPTDIR/compute-heap-opts ] ; then
+		return
+	fi
+
+	ZK_SCRIPT=${BIN_DIR}/zookeeper-server-start
+	BROKER_SCRIPT=${BIN_DIR}/kafka-server-start
+		# Source the script that sets *_HEAP_OPTS
+	. $SCRIPTDIR/compute-heap-opts 
+
+		# Since the ZK_SCRIPT already has an override, we need to 
+		# be careful and replace it in the right place
+	echo "$zknodes" | grep -q -w "$THIS_HOST" 
+	if [ $? -eq 0  -a  -n "$ZOOKEEPER_HEAP_OPTS" ] ; then
+		sed -i "/ export KAFKA_HEAP_OPTS=/a\ \ \ \ export KAFKA_HEAP_OPTS=\"$ZOOKEEPER_HEAP_OPTS\"" $ZK_SCRIPT
+		sed -i "0,/ export KAFKA_HEAP_OPTS=/s| export KAFKA_HEAP_OPTS=|#export KAFKA_HEAP_OPTS==|" $ZK_SCRIPT
+	fi
+
+		# Since the BROKER_SCRIPT already has an override, we need to 
+		# be careful and replace it in the right place
+	echo "$brokers" | grep -q -w "$THIS_HOST" 
+	if [ $? -eq 0  -a  -n "$BROKER_HEAP_OPTS" ] ; then
+		sed -i "/ export KAFKA_HEAP_OPTS=/a\ \ \ \ export KAFKA_HEAP_OPTS=\"$BROKER_HEAP_OPTS\"" $BROKER_SCRIPT
+		sed -i "0,/ export KAFKA_HEAP_OPTS=/s| export KAFKA_HEAP_OPTS=|#export KAFKA_HEAP_OPTS==|" $BROKER_SCRIPT
+	fi
+
+	echo "$workers" | grep -q -w "$THIS_HOST" 
+	if [ $? -eq 0 ] ; then
+		[ -n "$CONNECT_HEAP_OPTS" ] && \
+		  sed -i "/^exec /i export KAFKA_HEAP_OPTS=\"$CONNECT_HEAP_OPTS\"" $KAFKA_CONNECT_SCRIPT
+		[ -n "$REST_HEAP_OPTS" ] && \
+		  sed -i "/^exec /i export KAFKAREST_HEAP_OPTS=\"$REST_HEAP_OPTS\"" $REST_PROXY_SCRIPT
+	fi
+
+		# Control Center is the first worker
+	if [ "${workers%%,*}" = $THIS_HOST ] ; then
+		[ -n "$CC_HEAP_OPTS" ] && \
+		  sed -i "/^exec /i export CONTROL_CENTER_HEAP_OPTS=\"$CC_HEAP_OPTS\"" $CONTROL_CENTER_SCRIPT
+	fi
+
+		# Schema registy on second worker (or first if there's only one)
+	numWorkers=$(echo "${workers//,/ }" | wc -w)
+	if [ $numWorkers -le 1 ] ; then
+		srWorker=${workers%%,*}
+	else
+		srWorker=$(echo $workers | cut -d, -f2)
+	fi
+
+	if [ "${srWorker}" = $THIS_HOST ] ; then
+		[ -n "$SR_HEAP_OPTS" ] && \
+		  sed -i "/^exec /i export SCHEMA_REGISTRY_HEAP_OPTS=\"$SR_HEAP_OPTS\"" $SCHEMA_REG_SCRIPT
+	fi
+}
+
+# Simple code to wait for formation of zookeeper quorum.
+# We know that the "kafka-topics" call to retrieve metadata
+# won't work until the quorum is formed ... so use that
+# if the cub utility is not present.
+#
+wait_for_zk_quorum() {
+
+    ZOOKEEPER_WAIT=${1:-300}
+    STIME=5
+
+	if [ -x $SCRIPTDIR/cub  -a  -f $SCRIPTDIR/docker-utils.jar ] ; then
+		DOCKER_UTILS_JAR=$SCRIPTDIR/docker-utils.jar $SCRIPTDIR/cub zk-ready $zconnect $ZOOKEEPER_WAIT
+
+		[ $? -ne 0 ] && return 1
+    	sleep $STIME		# still need some stabilization time
+
+	else
+    	SWAIT=$ZOOKEEPER_WAIT
+    	${CP_TOP}/bin/kafka-topics --list --zookeeper ${zconnect} &> /dev/null
+    	while [ $? -ne 0  -a  $SWAIT -gt 0 ] ; do
+        	sleep $STIME
+        	SWAIT=$[SWAIT - $STIME]
+    		${CP_TOP}/bin/kafka-topics --list --zookeeper ${zconnect} &> /dev/null
+    	done
+
+		[ $SWAIT -le 0 ] && return 1
+	fi
+
+	return 0
 }
 
 resolve_zknodes() {
@@ -566,9 +660,61 @@ wait_for_brokers() {
 	return 0
 }
 
+# Kludgy function to make sure the cluster is formed before
+# proceeding with the remaining startup activities.
+#
+# Later versions of the image will have the 
+# "Confluent Utility Belt" (cub) utility; use that if present.
+#
+#	NOTE: We only need to wait for other brokers if THIS NODE
+#		is a broker or worker.  zookeeper-only nodes need not 
+#		waste time here
+wait_for_brokers() {
+	echo "$brokers" | grep -q -w "$THIS_HOST" 
+	if [ $? -ne 0 ] ; then
+		echo "$workers" | grep -q -w "$THIS_HOST" 
+		[ $? -ne 0 ] && return 0
+	fi
+
+	CP_TOP=${CP_HOME}
+	[ ! -d $CP_HOME ] && CP_TOP="/usr"
+
+    BROKER_WAIT=${1:-300}
+    STIME=5
+
+		# Now that we know the ZK cluster is on line, we can check the number
+		# of registered brokers.  Ideally, we'd just look for "enough" brokers,
+		# hence the "targetBrokers" logic below
+		#
+	local numBrokers=`echo ${brokers//,/ } | wc -w`
+	local targetBrokers=$numBrokers
+	[ $targetBrokers -gt 5 ] && targetBrokers=5
+
+	if [ -x $SCRIPTDIR/cub  -a  -f $SCRIPTDIR/docker-utils.jar ] ; then
+		DOCKER_UTILS_JAR=$SCRIPTDIR/docker-utils.jar $SCRIPTDIR/cub kafka-ready -b $bconnect $targetBrokers $BROKER_WAIT
+		[ $? -ne 0 ] && return 1
+
+	else
+		SWAIT=$BROKER_WAIT
+		local runningBrokers=$( echo "ls /brokers/ids" | $CP_TOP/bin/zookeeper-shell ${zconnect%%,*} | grep '^\[' | tr -d "[:punct:]" | wc -w )
+    	while [ ${runningBrokers:-0} -lt $targetBrokers  -a  $SWAIT -gt 0 ] ; do
+        	sleep $STIME
+        	SWAIT=$[SWAIT - $STIME]
+			runningBrokers=$( echo "ls /brokers/ids" | $CP_TOP/bin/zookeeper-shell ${zconnect%%,*} | grep '^\[' | tr -d "[:punct:]" | wc -w )
+    	done
+
+		[ $SWAIT -le 0 ] && return 1
+	fi
+
+	return 0
+}
 
 
-# Use hostname to determine services to start
+# Use host role to determine services to start.
+# Separate "core" and "worker" services, since we
+# may need to do some work within the brokers once
+# they are able to respond to admin requests.
+#
 # Configure appropriate services for auto-start
 #
 #	DANGER : the systemctl logic needs the control
@@ -576,8 +722,13 @@ wait_for_brokers() {
 #	cannot start with "$CP_HOME/initscripts/cp-*-service"
 #	and then stop with "/etc/init.d/cp-*-service"
 #
-start_node_services() {
-	BIN_DIR=$CP_HOME/bin
+start_core_services() {
+	CP_TOP=${CP_HOME}
+	[ ! -d $CP_HOME ] && CP_TOP="/usr"
+
+	BIN_DIR=$CP_TOP/bin
+
+	local zkhost=0
 
 	echo "$zknodes" | grep -q -w "$THIS_HOST" 
 	if [ $? -eq 0 ] ; then
@@ -592,10 +743,17 @@ start_node_services() {
 		else
 			$BIN_DIR/zookeeper-server-start -daemon $ZK_CFG
 		fi
+
+		zkhost=1
 	fi
 
 	echo "$brokers" | grep -q -w "$THIS_HOST" 
 	if [ $? -eq 0 ] ; then
+		wait_for_zk_quorum
+		if [ $? -ne 0 ] ; then
+        	echo "  WARNING: Zookeeper Quorum not formed; broker start may fail" | tee -a $LOG
+		fi
+
 		if [ -x $CP_HOME/initscripts/cp-kafka-service ] ; then
 			ln -s  $CP_HOME/initscripts/cp-kafka-service  /etc/init.d
 			chkconfig cp-kafka-service on
@@ -608,12 +766,23 @@ start_node_services() {
 			$BIN_DIR/kafka-server-start -daemon $BROKER_CFG
 		fi
 	fi
+}
 
-		# Very rudimentary function to wait for brokers to come on-line
-	wait_for_brokers
+start_worker_services() {
+	CP_TOP=${CP_HOME}
+	[ ! -d $CP_HOME ] && CP_TOP="/usr"
 
-		# Schema registy on first broker only
-	if [ ${brokers%%,*} = $THIS_HOST ] ; then
+	BIN_DIR=$CP_TOP/bin
+
+		# Schema registy on second worker (or first if there's only one)
+	numWorkers=$(echo "${workers//,/ }" | wc -w)
+	if [ $numWorkers -le 1 ] ; then
+		srWorker=${workers%%,*}
+	else
+		srWorker=$(echo $workers | cut -d, -f2)
+	fi
+
+	if [ "${srWorker}" = $THIS_HOST ] ; then
 		if [ -x $CP_HOME/initscripts/cp-schema-service ] ; then
 			ln -s  $CP_HOME/initscripts/cp-schema-service  /etc/init.d
 			chkconfig cp-schema-service on
@@ -623,11 +792,11 @@ start_node_services() {
 #			/etc/init.d/cp-schema-service start
 			service cp-schema-service start
 		else
-			$(cd $BIN_DIR/../logs; $BIN_DIR/schema-registry-run-class $CONF_SCHEMA_CLASS -daemon $SCHEMA_REG_CFG > /dev/null)
+			$(cd $BIN_DIR/../logs; $BIN_DIR/schema-registry-start -daemon $SCHEMA_REG_CFG > /dev/null)
 		fi
 	fi
 
-	echo "$brokers" | grep -q -w "$THIS_HOST" 
+	echo "$workers" | grep -q -w "$THIS_HOST" 
 	if [ $? -eq 0 ] ; then
 		if [ -x $CP_HOME/initscripts/cp-rest-service ] ; then
 			ln -s  $CP_HOME/initscripts/cp-rest-service  /etc/init.d
@@ -638,7 +807,7 @@ start_node_services() {
 #			/etc/init.d/cp-rest-service start
 			service cp-rest-service start
 		else
-			$(cd $BIN_DIR/../logs; $BIN_DIR/kafka-rest-run-class $CONF_REST_CLASS -daemon $REST_PROXY_CFG > /dev/null)
+			$(cd $BIN_DIR/../logs; $BIN_DIR/kafka-rest-start -daemon $REST_PROXY_CFG > /dev/null)
 		fi
 	fi
 
@@ -659,6 +828,9 @@ start_node_services() {
 }
 
 start_control_center() {
+	CP_TOP=${CP_HOME}
+	[ ! -d $CP_HOME ] && CP_TOP="/usr"
+
 	BIN_DIR=$CP_HOME/bin
 
 		# Control Center on first broker only
@@ -678,6 +850,140 @@ start_control_center() {
 			$(cd $BIN_DIR/../logs; $BIN_DIR/control-center-start -daemon $CONTROL_CENTER_CFG > /dev/null)
 		fi
 	fi
+}
+
+# We routinely encounter issues where the
+# workers come on line before the brokers / zookeepers are
+# ready to handle topic creation.  This is a silly wrapper
+# to safely retry topic creation for a more robust behavior.
+#
+#	Inputs: <topic> <partitions> <replicas>
+#	Return: 0 on success, 1 on failure
+#
+# WARNING: no error checking whatsoever
+#
+
+MAX_TOPIC_RETRIES=10
+RETRY_INTERVAL_SEC=5
+create_topic_safely() {
+	local this_retry=1
+	local this_topic=$1
+	local partitions=$2
+	local replicas=$3
+	local cleanup_policy=$4
+
+	CP_TOP=${CP_HOME}
+	[ ! -d $CP_HOME ] && CP_TOP="/usr"
+
+	[ -n "$cleanup_policy" ] && CP_ARG="--config cleanup.policy=$cleanup_policy" 
+
+	$CP_TOP/bin/kafka-topics --zookeeper ${zconnect} \
+		--create --if-not-exists \
+		--topic $this_topic \
+		--replication-factor ${replicas} --partitions ${partitions} $CP_ARG
+	while [ $? -ne 0  -a  $this_retry -lt $MAX_TOPIC_RETRIES ] ; do
+		this_retry=$[this_retry+1]
+		sleep $RETRY_INTERVAL_SEC
+
+		$CP_TOP/bin/kafka-topics --zookeeper ${zconnect} \
+			--create --if-not-exists \
+			--topic $this_topic \
+			--replication-factor ${replicas} --partitions ${partitions}
+	done
+
+	[ $this_retry -ge $MAX_TOPIC_RETRIES ] && return 1
+	return 0
+}
+
+# Crude function to wait for a topic to exist within the cluster.
+#
+#	$1: topic name
+#	$2: (optional) max wait (defaults to 5 minutes)
+wait_for_topic() {
+	local topic=${1:-}
+    local TOPIC_WAIT=${2:-300}
+
+	[ -z "$topic" ] && return
+
+	CP_TOP=${CP_HOME}
+	[ ! -d $CP_HOME ] && CP_TOP="/usr"
+
+    SWAIT=$TOPIC_WAIT
+    STIME=5
+	${CP_TOP}/bin/kafka-topics --zookeeper ${zconnect} \
+		--describe --topic ${topic} | grep -q "^Topic:"
+    while [ $? -ne 0  -a  $SWAIT -gt 0 ] ; do
+        sleep $STIME
+        SWAIT=$[SWAIT - $STIME]
+		${CP_TOP}/bin/kafka-topics --zookeeper ${zconnect} \
+			--describe --topic ${topic} | grep -q "^Topic:"
+    done
+
+}
+
+# Some worker services require existing topics
+# Do that here (ignoring errors for now).
+# 
+# Use "create_topic_safely" on all nodes, since it
+# uses the "--if-not-exists" flag that will correctly
+# avoid collisions when multiple workers try to create
+# the topics.
+#	ALTERNATIVE : Only create topics on worker-0,
+#	let other workers wait.
+#
+create_worker_topics() {
+		# If this instance won't create the topics ... just wait
+		# till the last one shows up.
+#	if [ "${workers%%,*}" != $THIS_HOST ] ; then
+#		wait_for_topic connect-status
+#		return
+#	fi
+
+	local numBrokers=`echo ${brokers//,/ } | wc -w`
+	local numWorkers=`echo ${workers//,/ } | wc -w`
+
+	CP_TOP=${CP_HOME}
+	[ ! -d $CP_HOME ] && CP_TOP="/usr"
+
+	BIN_DIR=$CP_TOP/bin
+
+		# Connect requires some simple topics.  Be sure
+		# these align with any overrides when customzing
+		# the connect-distributed.properties above.
+		# 	config.storage.topic=connect-configs
+		#	offset.storage.topic=connect-offsets
+		#	status.storage.topic=connect-status
+	connect_topic_replicas=3
+	[ $connect_topic_replicas -gt $numBrokers ] && connect_topic_replicas=$numBrokers
+
+	connect_config_partitions=1
+#	$CP_TOP/bin/kafka-topics --zookeeper ${zconnect} \
+#		--create --topic connect-configs \
+#		--replication-factor ${connect_topic_replicas} \
+#		--partitions ${connect_config_partitions} \
+#		--config cleanup.policy=compact 
+	create_topic_safely connect-configs \
+		${connect_config_partitions} ${connect_topic_replicas} compact
+
+	connect_offsets_partitions=50
+	[ $numBrokers -lt 6 ] && connect_offsets_partitions=$[numBrokers*8] 
+#	$CP_TOP/bin/kafka-topics --zookeeper ${zconnect} \
+#		--create --topic connect-offsets \
+#		--replication-factor ${connect_topic_replicas} \
+#		--partitions ${connect_offsets_partitions} \
+#		--config cleanup.policy=compact 
+	create_topic_safely connect-offsets \
+		${connect_offsets_partitions} ${connect_topic_replicas} compact
+
+	connect_status_partitions=10
+#	$CP_TOP/bin/kafka-topics --zookeeper ${zconnect} \
+#		--create --topic connect-status \
+#		--replication-factor ${connect_topic_replicas} \
+#		--partitions ${connect_status_partitions} \
+#		--config cleanup.policy=compact 
+	create_topic_safely connect-status \
+		${connect_status_partitions} ${connect_topic_replicas} compact
+
 }
 
 main() 
@@ -745,17 +1051,20 @@ main()
 		DATA_DIRS=`ls -d $CP_HOME/data*`
 	fi
 
-	patch_confluent_service_scripts
 	patch_confluent_initscripts
 
+	locate_cfg
+	locate_start_scripts
 	configure_confluent_node
-	
-	resolve_zknodes
-	if [ $? -eq 0 ] ; then
-		start_node_services
-		[ -n "$workers" ] && start_control_center 
-	fi
+	update_service_heap_opts
 
+	start_core_services
+	wait_for_brokers 600 			# rudimentary function 
+
+	create_worker_topics
+	start_worker_services
+	[ -n "$workers" ] && [ -f $CONTROL_CENTER_CFG ] && start_control_center 
+	
 	echo "$0 script finished at "`date` >> $LOG
 }
 
