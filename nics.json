@@ -27,6 +27,9 @@
         },
         "location": {
             "type": "string"
+        },
+        "resourceTags": {
+            "type": "object"
         }
     },
     "variables": {},
@@ -36,6 +39,9 @@
       "type": "Microsoft.Network/publicIPAddresses",
       "name": "[concat(parameters('groupBasename'), copyIndex(1), '-publicIP')]",
       "location": "[parameters('location')]",
+      "tags": {
+          "provider": "[toUpper(parameters('resourceTags').provider)]"
+      },
       "copy": {
           "name": "publicIPLoop",
           "count": "[parameters('groupSize')]"
@@ -52,6 +58,9 @@
         "type": "Microsoft.Network/networkInterfaces",
         "name": "[concat(parameters('groupBasename'), copyIndex(1), '-nic')]",
         "location": "[parameters('location')]",
+        "tags": {
+            "provider": "[toUpper(parameters('resourceTags').provider)]"
+        },
         "dependsOn": [
             "[concat('Microsoft.Network/publicIPAddresses/', parameters('groupBasename'), copyIndex(1), '-publicIP')]"
         ],

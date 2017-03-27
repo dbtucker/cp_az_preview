@@ -7,7 +7,10 @@
         },
         "location": {
             "type": "string"
-        }                
+        },                
+        "resourceTags": {
+            "type": "object"
+        }
     },
     "variables": {},
     "resources": [
@@ -16,6 +19,9 @@
       "type": "Microsoft.Network/virtualNetworks",
       "apiVersion": "2016-06-01",
       "location": "[parameters('location')]",
+      "tags": {
+          "provider": "[toUpper(parameters('resourceTags').provider)]"
+      },
       "properties": {
         "addressSpace": {
           "addressPrefixes": [

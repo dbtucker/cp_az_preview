@@ -57,6 +57,9 @@
         },
         "location": {
             "type": "string"
+        },
+        "resourceTags": {
+            "type": "object"
         }        
     },
     "variables": {
@@ -252,6 +255,9 @@
             "apiVersion": "2015-06-15",
             "plan": "[variables('vmPlan')]",
             "location": "[parameters('location')]",
+            "tags": {
+                "provider": "[toUpper(parameters('resourceTags').provider)]"
+            },
             "properties": {
                 "hardwareProfile": {
                     "vmSize": "[parameters('vmSize')]"

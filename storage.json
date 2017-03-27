@@ -5,25 +5,31 @@
         "storageAccountBasename": {
             "type": "string",
             "defaultValue": ""
-        },      
+        },
         "numStorageAccounts": {
             "type": "int",
             "defaultValue": 1
-        },      
+        },
         "storageAccountType": {
             "type": "string",
             "defaultValue": "Standard_LRS"
-        },      
-         "location": {
+        },
+        "location": {
             "type": "string",
             "defaultValue": ""
-        }       
+        },
+        "resourceTags": {
+            "type": "object"
+        }
     },      
     "resources": [{
             "type": "Microsoft.Storage/storageAccounts",
             "name": "[concat(parameters('storageAccountBasename'), copyIndex())]",
             "apiVersion": "2016-01-01",
             "location": "[parameters('location')]",
+            "tags": {
+                "provider": "[toUpper(parameters('resourceTags').provider)]"
+            },
             "sku": {
                 "name": "[parameters('storageAccountType')]"
             },

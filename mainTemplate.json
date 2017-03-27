@@ -147,6 +147,12 @@
                 "description": "Deployment location"
             }
         },
+        "confluentTags": {
+            "type": "object",
+            "defaultValue": {
+                "provider": "89E7D159-9A09-4FCA-A50B-E5CDE2628604"
+            }
+        },
         "vmSize": {
             "type": "string",
             "defaultValue": "Standard_D2",
@@ -189,6 +195,9 @@
                 },
                 "location": {
                     "value": "[parameters('location')]"
+                },
+                "resourceTags": {
+                    "value": "[parameters('confluentTags')]"
                 }
             }
         }
@@ -272,6 +281,9 @@
                 },
                 "location": {
                     "value": "[parameters('location')]"
+                },
+                "resourceTags": {
+                    "value": "[parameters('confluentTags')]"
                 }
             }
         }
@@ -310,6 +322,9 @@
                 },
                 "location" : {
                     "value": "[parameters('location')]"
+                },
+                "resourceTags": {
+                    "value": "[parameters('confluentTags')]"
                 }
             }
         }
@@ -381,6 +396,9 @@
                 },
                 "location" : {
                     "value": "[parameters('location')]"
+                },
+                "resourceTags": {
+                    "value": "[parameters('confluentTags')]"
                 }
             }
         }
@@ -429,6 +447,9 @@
                 },
                 "location" : {
                     "value": "[parameters('location')]"
+                },
+                "resourceTags": {
+                    "value": "[parameters('confluentTags')]"
                 }
             }
         }
@@ -467,6 +488,9 @@
                 },
                 "location" : {
                     "value": "[parameters('location')]"
+                },
+                "resourceTags": {
+                    "value": "[parameters('confluentTags')]"
                 }
             }
         }
@@ -538,6 +562,9 @@
                 },
                 "location" : {
                     "value": "[parameters('location')]"
+                },
+                "resourceTags": {
+                    "value": "[parameters('confluentTags')]"
                 }
             }
         }
@@ -587,6 +614,9 @@
                 },
                 "location" : {
                     "value": "[parameters('location')]"
+                },
+                "resourceTags": {
+                    "value": "[parameters('confluentTags')]"
                 }
             }
         }

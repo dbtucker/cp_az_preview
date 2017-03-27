@@ -20,8 +20,7 @@
         "label": "SysAdmin Username",
         "toolTip": "Admin username for the virtual machines",
         "constraints": {
-          "required": true,
-          "validationMessage": "Admin username between 5 and 16 characters long, and can contain only letters and numbers."
+          "required": true
         },
         "osPlatform": "Linux"
       },
@@ -224,7 +223,10 @@
           {
             "name": "confluentPassword",
             "type": "Microsoft.Common.PasswordBox",
-            "label": "Confluent Admin password",
+            "label": {
+              "password": "Confluent Admin password",
+              "confirmPassword": "Confluent Admin password"
+            },
             "toolTip": "The password for Confluent administrator (kadmin).",
             "constraints": {
               "required": true,

@@ -67,7 +67,10 @@
         },
         "location": {
             "type": "string"
-        }        
+        },
+        "resourceTags": {
+            "type": "object"
+        }
     },
     "variables": {
         "storageAccountBasename": "[concat(parameters('storageAccountSeed'),substring(parameters('groupClass'),0,2),'sa')]",
@@ -169,6 +172,9 @@
             },            
             "location": {
               "value": "[parameters('location')]"
+            },
+            "resourceTags": {
+              "value": "[parameters('resourceTags')]"
             }
           }
         }
@@ -231,6 +237,9 @@
             },            
             "location": {
                 "value": "[parameters('location')]"
+            },
+            "resourceTags": {
+              "value": "[parameters('resourceTags')]"
             }        
           }
         },

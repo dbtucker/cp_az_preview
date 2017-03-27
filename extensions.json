@@ -31,6 +31,9 @@
         },
         "location": {
             "type": "string"
+        },
+        "resourceTags": {
+            "type": "object"
         }
     },
     "resources": [
@@ -39,6 +42,9 @@
         "type": "Microsoft.Compute/virtualMachines/extensions",
         "apiVersion": "2015-06-15",
         "location": "[parameters('location')]",
+        "tags": {
+            "provider": "[toUpper(parameters('resourceTags').provider)]"
+        },
         "copy" : {
             "name" : "extLoop",
             "count": "[parameters('groupSize')]"

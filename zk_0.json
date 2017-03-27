@@ -75,7 +75,10 @@
         },
         "location": {
             "type": "string"
-        }                
+        },
+        "resourceTags": {
+            "type": "object"
+        }
     },
     "variables": {},
     "resources": []
